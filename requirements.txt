@@ -1,0 +1,15 @@
+fastf1==3.4.0
+pandas==2.2.2
+numpy==1.26.4
+pyarrow==16.0.0
+pydantic==2.7.1
+fastapi==0.111.0
+uvicorn==0.29.0
+scikit-learn==1.4.2
+xgboost==2.0.3
+python-dotenv==1.0.1
+httpx==0.27.0
+pytest==8.2.0
+mcp>=1.0.0
+mcp-contextforge-gateway
+ibm-watsonx-ai>=1.1.0
