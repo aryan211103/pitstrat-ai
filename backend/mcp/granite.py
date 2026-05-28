@@ -171,8 +171,9 @@ async def chat(
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
 
-    max_iterations = 5
+    max_iterations = 8
     loop = asyncio.get_event_loop()
+    last_content = ""
 
     for _ in range(max_iterations):
         # Run SDK call in thread pool (it's synchronous)
@@ -183,6 +184,10 @@ async def chat(
         choice = response["choices"][0]
         message = choice["message"]
         messages.append(message)
+
+        # Remember the last content even if a tool call also happened
+        if message.get("content"):
+            last_content = message["content"]
 
         # No tool call — final answer
         if choice["finish_reason"] == "stop" or not message.get("tool_calls"):
@@ -207,4 +212,17 @@ async def chat(
                 "content": tool_result,
             })
 
+    # Hit max iterations — force Granite to summarize what it has
+    messages.append({
+        "role": "user",
+        "content": "Based on all the data you've gathered, give me a concise final answer now. Do not call any more tools.",
+    })
+    response = await loop.run_in_executor(None, _call_granite_sync, messages, [])
+    final_text = response["choices"][0]["message"].get("content", "")
+    if final_text:
+        return final_text, messages[1:]
+
+    # Last resort
+    if last_content:
+        return last_content, messages[1:]
     return "I ran into trouble processing that. Please try rephrasing.", history
