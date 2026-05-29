@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getTeamColor, getDriverFlag, getTeamName } from "./f1Data";
 
 const API = "http://localhost:8000";
 
@@ -33,51 +34,150 @@ function TireBadge({ compound, size = 26 }) {
   );
 }
 
-function StintBar({ stint, totalLaps }) {
+function StintBar({ stint, totalLaps, isLeader }) {
   const c = COMPOUNDS[stint.compound] || COMPOUNDS.UNKNOWN;
   const left = ((stint.lap_start - 1) / totalLaps) * 100;
   const width = (stint.total_laps / totalLaps) * 100;
+  const [hover, setHover] = useState(false);
+
   return (
-    <div title={`${stint.compound} laps ${stint.laps} • deg ${stint.degradation_rate_per_lap?.toFixed(3) ?? "N/A"}s/lap`}
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
         position: "absolute", left: `${left}%`, width: `${Math.max(width, 0.5)}%`,
-        height: "100%", background: c.color,
-        borderRadius: 3, borderRight: "2px solid #0a0a0f",
+        height: "100%",
+        background: `linear-gradient(180deg, ${c.color}ff, ${c.color}cc 50%, ${c.color}aa)`,
+        borderRadius: 2,
+        borderRight: "2px solid #05050d",
+        boxShadow: isLeader ? `0 0 10px ${c.color}aa` : hover ? `0 0 8px ${c.color}88` : "inset 0 -2px 0 rgba(0,0,0,0.25)",
+        transition: "box-shadow 0.15s",
+        cursor: "pointer",
+        zIndex: hover ? 5 : 1,
       }}
-    />
+    >
+      {/* Tire compound circle at the start of the stint */}
+      {width > 4 && (
+        <div style={{
+          position: "absolute", left: 3, top: "50%", transform: "translateY(-50%)",
+          width: 14, height: 14, borderRadius: "50%",
+          background: c.color, border: "1.5px solid rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 9,
+          color: stint.compound === "HARD" ? "#222" : "#000",
+          boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+        }}>{c.label}</div>
+      )}
+
+      {/* Hover tooltip */}
+      {hover && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
+          transform: "translateX(-50%)", background: "#0a0a1a",
+          border: `1px solid ${c.color}66`, borderRadius: 6,
+          padding: "8px 12px", whiteSpace: "nowrap", zIndex: 100,
+          boxShadow: `0 6px 24px rgba(0,0,0,0.8), 0 0 0 1px ${c.color}33`,
+          fontFamily: "'Barlow Condensed', sans-serif",
+        }}>
+          <div style={{ fontSize: 10, color: c.color, fontWeight: 800, letterSpacing: 1.5 }}>
+            {stint.compound} · LAPS {stint.laps}
+          </div>
+          <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>
+            {stint.total_laps} laps · avg <span className="mono">{stint.avg_lap_time?.toFixed(2) || "—"}</span>s
+          </div>
+          {typeof stint.degradation_rate_per_lap === "number" && (
+            <div style={{ fontSize: 10, color: stint.degradation_rate_per_lap > 0 ? "#ff5566" : "#00ff88", marginTop: 2 }}>
+              deg {stint.degradation_rate_per_lap > 0 ? "+" : ""}<span className="mono">{stint.degradation_rate_per_lap.toFixed(3)}</span>s/lap
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
-function DriverRow({ driver, finish_position, stints, totalLaps, onSelect }) {
+function DriverRow({ driver, finish_position, stints, totalLaps, onSelect, index }) {
+  const teamColor = getTeamColor(driver);
+  const flag = getDriverFlag(driver);
+  const teamName = getTeamName(driver);
+  const [hover, setHover] = useState(false);
+  const isLeader = finish_position === 1;
+  const isPodium = finish_position <= 3;
+
   return (
     <div onClick={() => onSelect(driver)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
-        display: "flex", alignItems: "center", gap: 10,
-        marginBottom: 7, cursor: "pointer",
-        padding: "3px 6px", borderRadius: 4,
+        display: "flex", alignItems: "center", gap: 12,
+        marginBottom: 3, cursor: "pointer",
+        padding: "10px 14px 10px 0", borderRadius: 6,
+        background: hover
+          ? `linear-gradient(90deg, ${teamColor}22, transparent 70%)`
+          : isLeader
+          ? `linear-gradient(90deg, rgba(255, 215, 0, 0.06), transparent 30%)`
+          : "transparent",
+        position: "relative",
+        animation: `slideIn 0.3s ease ${index * 0.02}s both`,
       }}
-      onMouseEnter={e => e.currentTarget.style.background = "#1a1a2e"}
-      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     >
-      <span style={{
-        width: 28, textAlign: "right",
+      {/* Team color stripe — thicker */}
+      <div style={{
+        width: 4, height: 36, background: teamColor,
+        boxShadow: hover ? `0 0 12px ${teamColor}` : "none",
+        transition: "box-shadow 0.2s", borderRadius: 1,
+      }} />
+
+      {/* Position badge */}
+      <div style={{
+        width: 38, textAlign: "center",
         fontFamily: "'Barlow Condensed', sans-serif",
-        fontWeight: 700, fontSize: 12,
-        color: finish_position === 1 ? "#ffd700" : finish_position <= 3 ? "#aaa" : "#444",
-      }}>P{finish_position}</span>
-      <span style={{
-        width: 38, textAlign: "right",
+        fontWeight: 800, fontSize: 15,
+        color: isLeader ? "#0a0a14" : isPodium ? "#0a0a14" : "#888",
+        background: isLeader ? "#ffd700" : isPodium ? "#c0c0c0" : "transparent",
+        borderRadius: 4, padding: "3px 0",
+        boxShadow: isLeader ? "0 0 14px rgba(255, 215, 0, 0.5)" : "none",
+      }}>P{finish_position}</div>
+
+      <span style={{ fontSize: 18, lineHeight: 1, filter: "saturate(1.2)" }}>{flag}</span>
+
+      <span className="driver-code" style={{
+        width: 50, textAlign: "left",
         fontFamily: "'Barlow Condensed', sans-serif",
-        fontWeight: 700, fontSize: 13,
-        color: "#ccc", letterSpacing: 0.5,
+        fontWeight: 800, fontSize: 17,
+        color: hover ? teamColor : "#f5f5fa",
+        letterSpacing: 1,
+        transition: "color 0.2s",
+        textShadow: isLeader ? "0 0 12px rgba(255,215,0,0.4)" : "none",
       }}>{driver}</span>
-      <div style={{ flex: 1, position: "relative", height: 18, background: "#111", borderRadius: 3 }}>
-        {stints.map((s, i) => <StintBar key={i} stint={s} totalLaps={totalLaps} />)}
-      </div>
+
       <span style={{
-        width: 24, textAlign: "center", fontSize: 11, color: "#444",
+        width: 110, fontSize: 10, color: hover ? "#aaa" : "#555",
         fontFamily: "'Barlow Condensed', sans-serif",
-      }}>{stints.length - 1}P</span>
+        fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase",
+        transition: "color 0.2s",
+      }}>{teamName}</span>
+
+      <div style={{
+        flex: 1, position: "relative", height: 24,
+        background: "#05050d", borderRadius: 4, overflow: "visible",
+        border: "1px solid #1a1a30",
+      }}>
+        {/* Lap tick marks every 10 laps */}
+        {Array.from({ length: Math.floor(totalLaps / 10) }, (_, i) => (
+          <div key={i} style={{
+            position: "absolute", left: `${((i + 1) * 10 / totalLaps) * 100}%`,
+            top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.05)",
+            pointerEvents: "none",
+          }} />
+        ))}
+        {stints.map((s, i) => <StintBar key={i} stint={s} totalLaps={totalLaps} isLeader={isLeader} />)}
+      </div>
+
+      <span style={{
+        width: 42, textAlign: "center",
+        fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 14,
+        color: hover ? teamColor : "#888", letterSpacing: 0.5,
+        transition: "color 0.2s",
+      }}>{stints.length - 1}<span style={{ color: "#333", marginLeft: 2 }}>PIT{stints.length - 1 !== 1 ? "S" : ""}</span></span>
     </div>
   );
 }
@@ -115,6 +215,159 @@ function Spinner() {
           animation: "bounce 1.1s infinite", animationDelay: `${i * 0.18}s`,
         }} />
       ))}
+    </div>
+  );
+}
+
+// F1 car SVG silhouette — used as background brand element
+function F1CarSilhouette({ opacity = 0.06, width = 800 }) {
+  return (
+    <svg viewBox="0 0 800 200" style={{ width, height: "auto", opacity, pointerEvents: "none" }} xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="carGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#e8002d" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#e8002d" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Speed lines */}
+      <g stroke="url(#carGradient)" strokeWidth="1" fill="none">
+        <line x1="0" y1="80" x2="120" y2="80" />
+        <line x1="0" y1="100" x2="100" y2="100" />
+        <line x1="0" y1="120" x2="140" y2="120" />
+        <line x1="0" y1="140" x2="90" y2="140" />
+      </g>
+
+      {/* Front wing */}
+      <path d="M 140 100 L 200 95 L 220 90 L 250 88 L 250 110 L 220 112 L 200 110 L 140 105 Z"
+        fill="#e8002d" opacity="0.8" />
+
+      {/* Nose cone */}
+      <path d="M 220 95 L 320 85 L 340 90 L 340 105 L 320 110 L 220 102 Z" fill="#e8002d" />
+
+      {/* Front tyre */}
+      <ellipse cx="320" cy="110" rx="32" ry="38" fill="#0a0a0a" stroke="#e8002d" strokeWidth="2" />
+      <ellipse cx="320" cy="110" rx="18" ry="22" fill="#1a1a2a" />
+
+      {/* Cockpit / sidepod */}
+      <path d="M 340 75 L 480 70 L 540 80 L 560 90 L 560 110 L 540 120 L 480 130 L 340 125 Z"
+        fill="#e8002d" opacity="0.9" />
+
+      {/* Cockpit halo */}
+      <path d="M 410 50 Q 420 35, 450 35 Q 480 35, 490 50 L 490 75 L 410 75 Z"
+        fill="none" stroke="#1a1a2a" strokeWidth="3" />
+      <ellipse cx="450" cy="60" rx="35" ry="12" fill="#000" opacity="0.6" />
+
+      {/* Rear tyre */}
+      <ellipse cx="600" cy="110" rx="36" ry="42" fill="#0a0a0a" stroke="#e8002d" strokeWidth="2" />
+      <ellipse cx="600" cy="110" rx="20" ry="25" fill="#1a1a2a" />
+
+      {/* Rear wing */}
+      <path d="M 640 65 L 720 60 L 740 70 L 740 95 L 720 100 L 640 95 Z" fill="#e8002d" />
+      <rect x="640" y="60" width="100" height="4" fill="#e8002d" />
+
+      {/* Speed lines back */}
+      <g stroke="url(#carGradient)" strokeWidth="1" fill="none" transform="translate(0, 0) scale(-1, 1) translate(-800, 0)">
+        <line x1="0" y1="80" x2="60" y2="80" />
+        <line x1="0" y1="100" x2="50" y2="100" />
+        <line x1="0" y1="120" x2="70" y2="120" />
+      </g>
+    </svg>
+  );
+}
+
+// Race selector grouped by year
+function RaceSelector({ races, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Group races by year, descending
+  const grouped = races.reduce((acc, r) => {
+    if (!acc[r.year]) acc[r.year] = [];
+    acc[r.year].push(r);
+    return acc;
+  }, {});
+  const years = Object.keys(grouped).sort((a, b) => b - a);
+
+  const selected = races.find(r => `${r.year}-${r.round_number}` === value);
+  const displayText = selected
+    ? `${selected.year} R${String(selected.round_number).padStart(2, "0")} — ${selected.race_name}`
+    : "Select a race...";
+
+  return (
+    <div ref={ref} style={{ position: "relative", minWidth: 280 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        width: "100%", textAlign: "left", padding: "8px 14px",
+        background: "#13132a", border: "1px solid #252545",
+        borderRadius: 6, color: selected ? "#e8e8f0" : "#555",
+        fontSize: 13, cursor: "pointer",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        fontFamily: "'DM Sans', sans-serif",
+      }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayText}</span>
+        <span style={{
+          color: "#e8002d", marginLeft: 8, transition: "transform 0.2s",
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+        }}>▾</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0, left: 0,
+          background: "#0a0a1a", border: "1px solid #2e2e5a",
+          borderRadius: 8, maxHeight: 460, overflowY: "auto",
+          boxShadow: "0 12px 36px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,0,45,0.2)",
+          zIndex: 100, animation: "slideIn 0.15s ease",
+        }}>
+          {years.map(year => (
+            <div key={year}>
+              <div style={{
+                padding: "8px 14px", background: "#13132a",
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 800, fontSize: 12, letterSpacing: 2,
+                color: "#e8002d",
+                borderTop: "1px solid #1a1a30",
+                position: "sticky", top: 0, zIndex: 1,
+              }}>{year} SEASON · {grouped[year].length} RACES</div>
+              {grouped[year].map(r => {
+                const isSelected = `${r.year}-${r.round_number}` === value;
+                return (
+                  <div key={`${r.year}-${r.round_number}`}
+                    onClick={() => {
+                      onChange(`${r.year}-${r.round_number}`);
+                      setOpen(false);
+                    }}
+                    style={{
+                      padding: "8px 14px", cursor: "pointer",
+                      fontSize: 13, color: isSelected ? "#e8002d" : "#ccc",
+                      background: isSelected ? "#e8002d11" : "transparent",
+                      display: "flex", gap: 10, alignItems: "center",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#13132a"; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <span style={{
+                      width: 28, fontFamily: "'Barlow Condensed', sans-serif",
+                      fontWeight: 700, fontSize: 11, color: "#555", letterSpacing: 0.5,
+                    }}>R{String(r.round_number).padStart(2, "0")}</span>
+                    <span style={{ flex: 1 }}>{r.race_name}</span>
+                    {isSelected && <span style={{ color: "#e8002d", fontSize: 11 }}>●</span>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -517,18 +770,9 @@ export default function App() {
             ))}
           </nav>
           <div style={{ marginLeft: "auto" }}>
-            <select value={raceVal} onChange={handleRaceChange} style={{
-              background: "#13132a", border: "1px solid #252545",
-              color: raceVal ? "#e8e8f0" : "#555",
-              padding: "6px 14px", borderRadius: 6, fontSize: 13, cursor: "pointer", minWidth: 240,
-            }}>
-              <option value="">Select a race...</option>
-              {races.map(r => (
-                <option key={`${r.year}-${r.round_number}`} value={`${r.year}-${r.round_number}`}>
-                  {r.year} R{String(r.round_number).padStart(2, "0")} — {r.race_name}
-                </option>
-              ))}
-            </select>
+            <RaceSelector races={races} value={raceVal} onChange={(v) => {
+              handleRaceChange({ target: { value: v } });
+            }} />
           </div>
         </div>
       </header>
@@ -547,34 +791,129 @@ export default function App() {
 
             {raceData && !raceLoading && (
               <>
+                {/* HERO HEADER — F1 broadcast style */}
                 <div style={{
-                  background: "#0f0f1e", border: "1px solid #16162a",
-                  borderRadius: 10, padding: "16px 22px", marginBottom: 20,
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  background: "linear-gradient(135deg, #0a0a1a 0%, #13132a 100%)",
+                  border: "1px solid #1e1e3a",
+                  borderRadius: 12, marginBottom: 18,
+                  position: "relative", overflow: "hidden",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)",
                 }}>
-                  <div>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 22, color: "#fff" }}>
-                      {raceData.race} {raceData.year}
+                  {/* F1 car silhouette */}
+                  <div style={{ position: "absolute", right: -120, top: -50, pointerEvents: "none" }}>
+                    <F1CarSilhouette opacity={0.18} width={780} />
+                  </div>
+
+                  {/* Animated red corner accent */}
+                  <div style={{
+                    position: "absolute", top: 0, left: 0,
+                    width: 4, height: "100%",
+                    background: "linear-gradient(180deg, #e8002d, transparent)",
+                    boxShadow: "0 0 12px rgba(232, 0, 45, 0.6)",
+                  }} />
+
+                  {/* Scan line effect */}
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    background: "linear-gradient(transparent 50%, rgba(232, 0, 45, 0.02) 50%)",
+                    backgroundSize: "100% 4px",
+                    pointerEvents: "none",
+                  }} />
+
+                  <div style={{ position: "relative", padding: "26px 32px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", zIndex: 1 }}>
+                    <div>
+                      <div className="live-indicator" style={{
+                        fontSize: 10, color: "#e8002d",
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontWeight: 800, letterSpacing: 3, marginBottom: 10,
+                      }}>
+                        RACE TELEMETRY · LIVE DATA FEED
+                      </div>
+                      <div style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontWeight: 800, fontSize: 44,
+                        color: "#fff", letterSpacing: 0.5, lineHeight: 1,
+                        textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+                      }}>
+                        {raceData.race}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontWeight: 800, fontSize: 70,
+                        color: "#e8002d", letterSpacing: 2, lineHeight: 0.9,
+                        textShadow: "0 0 32px rgba(232, 0, 45, 0.5)",
+                        marginTop: -8,
+                      }}>
+                        {raceData.year}
+                      </div>
                     </div>
-                    <div style={{ color: "#555", fontSize: 12, marginTop: 2 }}>
-                      {raceData.total_laps} laps · {raceData.drivers?.length} drivers
+
+                    {/* Stats panel */}
+                    <div style={{ display: "flex", gap: 24, alignItems: "flex-end" }}>
+                      {[
+                        { label: "LAPS", value: raceData.total_laps },
+                        { label: "DRIVERS", value: raceData.drivers?.length },
+                        { label: "ROUND", value: String(selectedRace?.round_number).padStart(2, "0") },
+                        { label: "PIT STOPS", value: raceData.drivers?.reduce((sum, d) => sum + (d.pit_stops?.length || 0), 0) },
+                      ].map(s => (
+                        <div key={s.label} style={{ textAlign: "right" }}>
+                          <div style={{
+                            fontSize: 9, color: "#555",
+                            fontFamily: "'Barlow Condensed', sans-serif",
+                            fontWeight: 700, letterSpacing: 2, marginBottom: 4,
+                          }}>{s.label}</div>
+                          <div className="mono" style={{
+                            fontSize: 28, color: "#e8e8f0",
+                            fontWeight: 700, lineHeight: 1,
+                          }}>{s.value}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 14 }}>
+
+                  {/* Bottom border with tire compounds */}
+                  <div style={{
+                    display: "flex", justifyContent: "flex-end",
+                    gap: 22, padding: "12px 32px",
+                    background: "rgba(5,5,13,0.4)",
+                    borderTop: "1px solid #1a1a30",
+                    position: "relative", zIndex: 1,
+                  }}>
+                    <span style={{
+                      marginRight: "auto", fontSize: 10, color: "#444",
+                      fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+                      letterSpacing: 1.5,
+                    }}>TYRE COMPOUNDS</span>
                     {["SOFT", "MEDIUM", "HARD"].map(c => (
-                      <div key={c} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <div key={c} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <TireBadge compound={c} size={20} />
-                        <span style={{ fontSize: 11, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1 }}>{TYRE_LIFE[c]}</span>
+                        <span style={{ fontSize: 11, color: "#666", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1 }}>{TYRE_LIFE[c]}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div style={{ background: "#0f0f1e", border: "1px solid #16162a", borderRadius: 10, padding: "16px 16px 10px" }}>
-                  {raceData.drivers?.map(d => (
+                <div style={{ background: "#0f0f1e", border: "1px solid #16162a", borderRadius: 10, padding: "18px 12px 12px", position: "relative", overflow: "hidden" }}>
+                  {/* Column headers */}
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "0 14px 12px 18px", borderBottom: "1px solid #1a1a30", marginBottom: 10,
+                    fontSize: 9, letterSpacing: 1.5, color: "#444",
+                    fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+                  }}>
+                    <span style={{ width: 4 }}></span>
+                    <span style={{ width: 38, textAlign: "center" }}>POS</span>
+                    <span style={{ width: 18 }}></span>
+                    <span style={{ width: 50 }}>DRIVER</span>
+                    <span style={{ width: 110 }}>TEAM</span>
+                    <span style={{ flex: 1 }}>TYRE STINTS · LAP <span style={{ color: "#e8002d" }}>0</span> → <span style={{ color: "#e8002d" }}>{raceData.total_laps}</span></span>
+                    <span style={{ width: 42, textAlign: "center" }}>PITS</span>
+                  </div>
+
+                  {raceData.drivers?.map((d, idx) => (
                     <DriverRow key={d.driver} driver={d.driver}
                       finish_position={d.finish_position} stints={d.stints || []}
-                      totalLaps={raceData.total_laps} onSelect={handleStintClick} />
+                      totalLaps={raceData.total_laps} onSelect={handleStintClick} index={idx} />
                   ))}
                 </div>
               </>

@@ -77,6 +77,7 @@ def get_race(year: int, round_number: int):
             "pit_stops": [
                 {"lap": p.lap_number, "from": p.compound_out.value, "to": p.compound_in.value}
                 for p in pits
+                if p.compound_out.value != p.compound_in.value  # skip phantom pits (same compound)
             ],
             "start_compound": stints[0].compound.value if stints else "MEDIUM",
         })
