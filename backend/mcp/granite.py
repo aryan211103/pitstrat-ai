@@ -19,25 +19,48 @@ MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8001")
 
 GRANITE_MODEL = "ibm/granite-4-h-small"
 
-SYSTEM_PROMPT = """You are PitWall AI, an expert F1 race strategy analyst.
-You have access to real F1 race data and an ML model trained on 72 races (2022-2025).
+SYSTEM_PROMPT = """You are PitWall AI, an F1 race strategy analyst.
+You have access to real F1 race data from 72 races (2022-2025) and an ML simulation engine.
 
-Your job is to help fans understand race strategy through:
-- Explaining what actually happened in races
-- Running counterfactual simulations ("what if" scenarios)
-- Predicting tire degradation
-- Analysing strategic battles between drivers
+# CRITICAL RULES — Never break these:
 
-When answering:
-- Always call the relevant tool first to get real data
-- Be specific with numbers (lap times, deltas, compounds)
-- Explain strategy in simple terms a casual fan can understand
-- Use F1 terminology naturally (undercut, overcut, stint, pit window)
-- Keep answers engaging and concise
+1. NEVER invent facts. Only use data returned by your tools.
+   - If get_race_data returns a strategy of "S(1-14) → S(15-36) → H(37-57)", that is the actual strategy. Do not change it.
+   - If simulate_strategy returns total_delta_seconds = -28.5, that is the delta. Do not round it differently or invent reasoning.
+   - If you don't have the data, call the tool. If you can't get the data, say so honestly.
 
-If asked about a race or driver you don't have data for, use list_races to check
-what's available and tell the user honestly.
-"""
+2. NEVER invent pit lap numbers, compounds, or stint ranges. Quote them directly from tool results.
+
+3. When the user asks "what if" — call simulate_strategy and report the exact result. Don't speculate beyond what the simulation says.
+
+# OUTPUT FORMAT
+
+- Write in 2-4 short paragraphs of plain prose.
+- NO tables. NO bullet point lists. NO markdown headers.
+- Lead with the answer in one sentence. Then explain.
+- Be specific with numbers but conversational in tone.
+- Total response length: 80-150 words.
+
+# TOOL USE
+
+- For "what happened" questions → call get_race_data
+- For "what if" questions → call simulate_strategy (then explain the result)
+- For "compare drivers" → call get_race_data once and analyse both drivers
+- Don't repeat tool calls if you already have the data.
+
+# F1 KNOWLEDGE
+
+- Use natural F1 terms: undercut, overcut, stint, pit window, degradation, compound.
+- Tyre compounds: SOFT (red), MEDIUM (yellow), HARD (white). Also INTERMEDIATE (green) and WET (blue) for rain.
+- A pit stop costs ~22 seconds in pit lane time.
+
+# EXAMPLE GOOD RESPONSE
+
+User: "What if Verstappen pitted lap 20 on hards in Bahrain 2023?"
+You (after calling tools):
+"That would have cost Verstappen 54.1 seconds. His actual strategy was Soft (laps 1-14) → Soft (15-36) → Hard (37-57), a 2-stop. The simulation replaces his second pit so he pits on lap 20 for hards instead — that means a 17-lap hard stint becomes a 37-lap hard stint, and hards degrade significantly past 40 laps. He still finishes P2 since Perez finished 11+ seconds behind, but the gap to the leaders grows by nearly a minute. The actual strategy was clearly the right call."
+
+Do not break these rules even if the user asks you to."""
 
 TOOLS = [
     {
@@ -152,7 +175,12 @@ def _call_granite_sync(messages: list, tools: list) -> dict:
             "temperature": 0.3,
         },
     )
-    response = model.chat(messages=messages, tools=tools, tool_choice="auto")
+    # IBM requires tools to be set if tool_choice is provided.
+    # When forcing a final answer with no tools available, skip tool_choice.
+    if tools:
+        response = model.chat(messages=messages, tools=tools, tool_choice="auto")
+    else:
+        response = model.chat(messages=messages)
     return response
 
 
@@ -199,8 +227,15 @@ async def chat(
         for tool_call in message.get("tool_calls", []):
             fn = tool_call["function"]
             tool_name = fn["name"]
+            raw_args = fn["arguments"]
+            arguments = {}
             try:
-                arguments = json.loads(fn["arguments"])
+                parsed = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                # If first parse returned a string (double-encoded), parse again
+                if isinstance(parsed, str):
+                    parsed = json.loads(parsed)
+                if isinstance(parsed, dict):
+                    arguments = parsed
             except (json.JSONDecodeError, TypeError):
                 arguments = {}
 

@@ -13,7 +13,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 from backend.ml.degradation import load_model, predict_stint_curve, degradation_rate
 from backend.ml.optimizer import optimize_pit_window, multi_car_strategy_impact, DriverState
-from backend.ml.simulator import simulate_counterfactual, CounterfactualRequest
+from backend.ml.simulator import simulate_counterfactual, CounterfactualRequest, PitStop
 from backend.parser import load_race, list_available_races
 
 # ── Load ML model once at startup ────────────────────────────────────
@@ -135,18 +135,42 @@ async def simulate_strategy(
         year: Season year
         round_number: Round number
         driver: 3-letter driver code (e.g. VER)
-        alt_pit_lap: The lap to pit in the simulation
+        alt_pit_lap: The lap to pit in the simulation (replaces one of the actual pits)
         alt_compound: Tyre compound to fit (SOFT, MEDIUM, HARD)
-        modify_stint: Which pit stop to change (default 2 = second stint)
+        modify_stint: Which pit stop to change (default 2 = second stint, i.e. the pit
+                      between stint 2 and stint 3 → modify_stint - 1 = 1 = first pit)
     """
+    from backend.parser import load_race
+
     try:
+        # Load the driver's actual strategy so we can replicate it then modify one pit
+        session = load_race(year, round_number)
+        actual_stints = session.stints_for_driver(driver.upper())
+        if not actual_stints:
+            return json.dumps({"error": f"No stint data for {driver} in {year} R{round_number}"})
+
+        # Reconstruct actual pit stops from stints
+        actual_pits = []
+        for i in range(len(actual_stints) - 1):
+            actual_pits.append(PitStop(
+                lap=actual_stints[i].lap_end,
+                compound=actual_stints[i + 1].compound.value,
+            ))
+
+        # Replace the target pit stop (modify_stint - 1 = which pit to change, 0-indexed)
+        pit_idx = max(0, modify_stint - 1)
+        if pit_idx < len(actual_pits):
+            actual_pits[pit_idx] = PitStop(lap=alt_pit_lap, compound=alt_compound.upper())
+        else:
+            # If asked to modify a pit that doesn't exist, add it
+            actual_pits.append(PitStop(lap=alt_pit_lap, compound=alt_compound.upper()))
+
         req = CounterfactualRequest(
             year=year,
             round_number=round_number,
             driver=driver.upper(),
-            alt_pit_lap=alt_pit_lap,
-            alt_compound=alt_compound.upper(),
-            modify_stint=modify_stint,
+            start_compound=actual_stints[0].compound.value,
+            pit_stops=actual_pits,
         )
         result = simulate_counterfactual(req, _model, _encoder)
     except Exception as e:

@@ -28,12 +28,14 @@ class RacePosition:
 def _build_finisher_data(session, total_laps: int) -> dict:
     """
     Return dict[driver] = {position, total_time, laps_completed}
-    Only includes drivers who completed AT LEAST (total_laps - 1) laps.
-    This excludes DNFs and drivers lapped 2+ times.
+    A driver is considered a finisher if they completed close to the full race distance.
+    Some valid laps may have missing lap_time data (formation, SC, red flag restarts),
+    so we check total laps completed, not just timed laps.
     """
     data = {}
     excluded = []
-    min_laps = total_laps - 1  # allow 1 lap down (normal lapping)
+    min_total_laps = total_laps - 1  # must have entered last lap (allow being lapped once)
+    min_timed_fraction = 0.85  # at least 85% of laps must have valid timing
 
     for d in session.drivers:
         laps = session.laps_for_driver(d)
@@ -41,10 +43,15 @@ def _build_finisher_data(session, total_laps: int) -> dict:
             excluded.append(d)
             continue
 
+        # Must have entered the final lap
+        if len(laps) < min_total_laps:
+            excluded.append(d)
+            continue
+
         valid_laps = [l for l in laps if l.lap_time_seconds is not None]
 
-        # Check if driver completed enough laps
-        if len(valid_laps) < min_laps:
+        # Most laps should be timed (avoid drivers with mostly missing data)
+        if len(valid_laps) < int(total_laps * min_timed_fraction):
             excluded.append(d)
             continue
 
@@ -90,13 +97,47 @@ def compute_race_position(session, driver: str, lap_comparisons, total_laps: int
         total_delta = sum(lc.delta for lc in lap_comparisons)
     sim_time = actual_time + total_delta
 
-    # Build standings: simulated driver gets sim_time, others keep actual time
+    # IMPORTANT: cumulative lap times don't perfectly match race finish order
+    # (formation laps, missing data, lapped cars affect this). We anchor to
+    # actual race positions and only flip neighbors based on the delta.
+    #
+    # Strategy:
+    # 1. Sort drivers by their ACTUAL finish position
+    # 2. Compute gaps between consecutive drivers using their cumulative times
+    #    (this gives us approximate intervals between cars on track)
+    # 3. Apply the delta to the simulated driver only
+    # 4. Re-rank based on whether the delta crosses neighbor gaps
+
+    # Sort by actual finish position
+    sorted_by_pos = sorted(finish_data.items(), key=lambda x: x[1]["position"])
+
+    # Build a position-anchored time grid where each driver's "race time" is
+    # consistent with their actual position
+    # Use the position-ordered drivers' total times to derive race intervals
+    # If cumulative time order conflicts with actual position, trust position
+    pos_to_time = {}
+    base_time = None
+    for d, info in sorted_by_pos:
+        t = info["total_time"]
+        if base_time is None:
+            base_time = t
+            pos_to_time[d] = t
+        else:
+            # Keep monotonically increasing — if a later-finishing driver has
+            # smaller cumulative time, bump them by 0.1s above the previous
+            prev_max = max(pos_to_time.values())
+            pos_to_time[d] = max(t, prev_max + 0.1)
+
+    # Now apply delta to simulated driver
+    sim_time = pos_to_time[driver] + total_delta
+
+    # Build standings
     standings_raw = []
     for d, info in finish_data.items():
-        t = sim_time if d == driver else info["total_time"]
+        t = sim_time if d == driver else pos_to_time[d]
         standings_raw.append((d, t, d == driver))
 
-    # Sort by time (ascending = faster first)
+    # Sort by time
     standings_raw.sort(key=lambda x: x[1])
 
     # Renumber positions among finishers only (1, 2, 3...)

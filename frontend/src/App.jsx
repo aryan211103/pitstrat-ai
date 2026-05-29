@@ -185,23 +185,50 @@ function DriverRow({ driver, finish_position, stints, totalLaps, onSelect, index
 function ChatMessage({ msg }) {
   const isUser = msg.role === "user";
   return (
-    <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", marginBottom: 14 }}>
+    <div style={{
+      display: "flex", justifyContent: isUser ? "flex-end" : "flex-start",
+      marginBottom: 16, animation: "slideIn 0.2s ease",
+    }}>
       {!isUser && (
         <div style={{
-          width: 28, height: 28, borderRadius: "50%", background: "#e8002d",
+          width: 34, height: 34, borderRadius: "50%",
+          background: "linear-gradient(135deg, #e8002d, #8a001a)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
-          fontSize: 11, color: "#fff", marginRight: 8, flexShrink: 0, marginTop: 2,
+          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+          fontSize: 12, color: "#fff", marginRight: 10, flexShrink: 0, marginTop: 2,
+          boxShadow: "0 0 12px rgba(232, 0, 45, 0.3), inset 0 0 0 1px rgba(255,255,255,0.1)",
+          letterSpacing: 0.5,
         }}>PW</div>
       )}
-      <div style={{
-        maxWidth: "76%", padding: "10px 14px",
-        background: isUser ? "#e8002d1a" : "#14142a",
-        border: `1px solid ${isUser ? "#e8002d33" : "#252545"}`,
-        borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-        color: "#e0e0f0", fontSize: 14, lineHeight: 1.65,
-        whiteSpace: "pre-wrap",
-      }}>{msg.content}</div>
+      <div style={{ maxWidth: "76%", display: "flex", flexDirection: "column", gap: 4, alignItems: isUser ? "flex-end" : "flex-start" }}>
+        {!isUser && (
+          <div style={{
+            fontSize: 9, color: "#666",
+            fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 2,
+          }}>PITWALL AI · RACE ENGINEER</div>
+        )}
+        <div style={{
+          padding: "12px 16px",
+          background: isUser
+            ? "linear-gradient(135deg, rgba(232, 0, 45, 0.12), rgba(232, 0, 45, 0.06))"
+            : "#0f0f1e",
+          border: `1px solid ${isUser ? "#e8002d44" : "#252545"}`,
+          borderRadius: isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
+          color: "#e8e8f0", fontSize: 14, lineHeight: 1.65,
+          whiteSpace: "pre-wrap",
+          boxShadow: isUser ? "0 0 16px rgba(232, 0, 45, 0.08)" : "0 2px 8px rgba(0,0,0,0.3)",
+          fontFamily: "'DM Sans', sans-serif",
+        }}>{msg.content}</div>
+      </div>
+      {isUser && (
+        <div style={{
+          width: 34, height: 34, borderRadius: "50%",
+          background: "#13132a", border: "1px solid #252545",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+          fontSize: 12, color: "#888", marginLeft: 10, flexShrink: 0, marginTop: 2,
+        }}>YOU</div>
+      )}
     </div>
   );
 }
@@ -483,6 +510,385 @@ function ResidualHistogram({ data }) {
   );
 }
 
+// Strategy battle results — actual race head-to-head
+function BattleResults({ result }) {
+  const { driver_a, driver_b, final_gap, lap_comparison, key_moments, total_laps } = result;
+  const aColor = getTeamColor(driver_a.driver);
+  const bColor = getTeamColor(driver_b.driver);
+  const winner = final_gap < 0 ? driver_a : driver_b;
+  const loser = final_gap < 0 ? driver_b : driver_a;
+  const winnerColor = final_gap < 0 ? aColor : bColor;
+  const absGap = Math.abs(final_gap);
+
+  // Build delta curve SVG
+  const validDeltas = lap_comparison.filter(l => l.cum_delta !== null);
+  const maxAbs = Math.max(...validDeltas.map(l => Math.abs(l.cum_delta)), 1);
+  const W = 800, H = 220, padX = 50, padY = 24;
+  const innerW = W - padX * 2;
+  const innerH = H - padY * 2;
+
+  const pathPoints = validDeltas.map(l => {
+    const x = padX + ((l.lap - 1) / (total_laps - 1)) * innerW;
+    const y = padY + innerH / 2 - (l.cum_delta / maxAbs) * (innerH / 2);
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <>
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 18 }}>
+        {/* Driver A */}
+        <div style={{
+          background: `linear-gradient(135deg, ${aColor}15, ${aColor}05)`,
+          border: `1px solid ${aColor}55`, borderRadius: 10,
+          padding: "18px 22px", position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: aColor, boxShadow: `0 0 12px ${aColor}88` }} />
+          <div style={{ fontSize: 10, color: aColor, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, letterSpacing: 2, marginBottom: 6 }}>DRIVER A</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 22 }}>{getDriverFlag(driver_a.driver)}</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: "#fff", letterSpacing: 1 }}>{driver_a.driver}</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#888", marginTop: 4, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>P{driver_a.final_position} · {driver_a.pit_count} PIT{driver_a.pit_count !== 1 ? "S" : ""}</div>
+          <div style={{ fontSize: 11, color: "#aaa", marginTop: 12, fontFamily: "JetBrains Mono, monospace" }}>{driver_a.strategy}</div>
+        </div>
+
+        {/* Final gap */}
+        <div style={{
+          background: "#0f0f1e", border: "1px solid #ffd70044",
+          borderRadius: 10, padding: "18px 22px",
+          display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+          boxShadow: "0 0 24px rgba(255, 215, 0, 0.05)",
+        }}>
+          <div style={{ fontSize: 10, color: "#ffd700", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, letterSpacing: 2, marginBottom: 8 }}>FINAL GAP</div>
+          <div className="mono" style={{
+            fontWeight: 700, fontSize: 36, lineHeight: 1, color: winnerColor,
+            textShadow: `0 0 16px ${winnerColor}66`,
+          }}>{absGap.toFixed(2)}s</div>
+          <div style={{ fontSize: 11, color: "#666", marginTop: 10, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>
+            {winner.driver} ahead of {loser.driver}
+          </div>
+        </div>
+
+        {/* Driver B */}
+        <div style={{
+          background: `linear-gradient(135deg, ${bColor}15, ${bColor}05)`,
+          border: `1px solid ${bColor}55`, borderRadius: 10,
+          padding: "18px 22px", position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: bColor, boxShadow: `0 0 12px ${bColor}88` }} />
+          <div style={{ fontSize: 10, color: bColor, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, letterSpacing: 2, marginBottom: 6 }}>DRIVER B</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 22 }}>{getDriverFlag(driver_b.driver)}</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: "#fff", letterSpacing: 1 }}>{driver_b.driver}</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#888", marginTop: 4, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>P{driver_b.final_position} · {driver_b.pit_count} PIT{driver_b.pit_count !== 1 ? "S" : ""}</div>
+          <div style={{ fontSize: 11, color: "#aaa", marginTop: 12, fontFamily: "JetBrains Mono, monospace" }}>{driver_b.strategy}</div>
+        </div>
+      </div>
+
+      {/* Lap-by-lap delta chart */}
+      <div style={{ background: "#0f0f1e", border: "1px solid #16162a", borderRadius: 10, padding: "18px 22px", marginBottom: 18 }}>
+        <div style={{ fontSize: 11, color: "#666", letterSpacing: 2, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 14 }}>
+          CUMULATIVE TIME DELTA · <span style={{ color: aColor }}>{driver_a.driver}</span> vs <span style={{ color: bColor }}>{driver_b.driver}</span> (negative = {driver_a.driver} ahead)
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+          {/* Zero line */}
+          <line x1={padX} y1={padY + innerH / 2} x2={padX + innerW} y2={padY + innerH / 2}
+            stroke="#252545" strokeDasharray="3,3" />
+
+          {/* Lap tick marks */}
+          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+            const x = padX + t * innerW;
+            const lap = Math.round(1 + t * (total_laps - 1));
+            return (
+              <g key={t}>
+                <line x1={x} y1={padY} x2={x} y2={padY + innerH} stroke="#1a1a30" />
+                <text x={x} y={padY + innerH + 16} fontSize="9" fill="#555" textAnchor="middle" fontFamily="Barlow Condensed" letterSpacing="0.5">L{lap}</text>
+              </g>
+            );
+          })}
+
+          {/* Delta polyline */}
+          <polyline points={pathPoints} fill="none" stroke={aColor} strokeWidth="2"
+            style={{ filter: `drop-shadow(0 0 4px ${aColor}88)` }} />
+
+          {/* Y labels */}
+          <text x={padX - 8} y={padY + 4} fontSize="9" fill="#555" textAnchor="end" fontFamily="Barlow Condensed">-{maxAbs.toFixed(0)}s</text>
+          <text x={padX - 8} y={padY + innerH / 2 + 3} fontSize="9" fill="#555" textAnchor="end" fontFamily="Barlow Condensed">0s</text>
+          <text x={padX - 8} y={padY + innerH + 4} fontSize="9" fill="#555" textAnchor="end" fontFamily="Barlow Condensed">+{maxAbs.toFixed(0)}s</text>
+        </svg>
+      </div>
+
+      {/* Key moments */}
+      {key_moments?.length > 0 && (
+        <div style={{ background: "#0f0f1e", border: "1px solid #16162a", borderRadius: 10, padding: "18px 22px" }}>
+          <div style={{ fontSize: 11, color: "#666", letterSpacing: 2, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 12 }}>KEY MOMENTS · BIGGEST LAP-BY-LAP DELTAS</div>
+          {key_moments.map(m => (
+            <div key={m.lap} style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "8px 12px", borderRadius: 6, marginBottom: 4,
+              background: "#13132a",
+            }}>
+              <span className="mono" style={{ width: 50, color: "#ffd700", fontSize: 13, fontWeight: 700 }}>LAP {m.lap}</span>
+              <span style={{ color: aColor, fontSize: 12, fontFamily: "JetBrains Mono, monospace", width: 80 }}>{m.lap_time_a?.toFixed(3)}s</span>
+              <span style={{ color: "#444" }}>vs</span>
+              <span style={{ color: bColor, fontSize: 12, fontFamily: "JetBrains Mono, monospace", width: 80 }}>{m.lap_time_b?.toFixed(3)}s</span>
+              <span style={{ flex: 1 }} />
+              <span className="mono" style={{
+                fontSize: 14, fontWeight: 700,
+                color: m.delta_lap < 0 ? aColor : bColor,
+              }}>{m.delta_lap > 0 ? "+" : ""}{m.delta_lap?.toFixed(3)}s</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+// What-if compare — run simulations for multiple drivers
+function WhatIfCompare({ raceData, selectedRace }) {
+  const [drivers, setDrivers] = useState([]);
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  function addDriver() {
+    if (drivers.length >= 3 || !raceData) return;
+    const used = new Set(drivers.map(d => d.driver));
+    const available = raceData.drivers?.find(d => !used.has(d.driver));
+    if (!available) return;
+    setDrivers([...drivers, {
+      driver: available.driver,
+      start_compound: available.start_compound || "MEDIUM",
+      pit_stops: (available.pit_stops || []).map(p => ({ lap: p.lap, compound: p.to })),
+    }]);
+    setResults(null);
+  }
+
+  function removeDriver(idx) {
+    setDrivers(drivers.filter((_, i) => i !== idx));
+    setResults(null);
+  }
+
+  function updateDriver(idx, changes) {
+    const next = [...drivers];
+    next[idx] = { ...next[idx], ...changes };
+    setDrivers(next);
+    setResults(null);
+  }
+
+  async function runAll() {
+    if (drivers.length < 2 || !selectedRace) return;
+    setLoading(true);
+    setResults(null);
+    try {
+      const r = await fetch(`${API}/simulate_multi`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year: selectedRace.year,
+          round_number: selectedRace.round_number,
+          drivers: drivers.map(d => ({
+            year: selectedRace.year,
+            round_number: selectedRace.round_number,
+            driver: d.driver,
+            start_compound: d.start_compound,
+            pit_stops: d.pit_stops,
+          })),
+        }),
+      });
+      const data = await r.json();
+      setResults(data);
+    } catch {
+      setResults({ error: "Simulation failed" });
+    }
+    setLoading(false);
+  }
+
+  if (!selectedRace) {
+    return <div style={{ color: "#e8002d", fontSize: 13, padding: 14 }}>← Pick a race from the dropdown above</div>;
+  }
+
+  return (
+    <>
+      <div style={{ background: "#0f0f1e", border: "1px solid #16162a", borderRadius: 10, padding: "16px 20px", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: "#666", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 }}>
+            DRIVERS ({drivers.length}/3)
+          </div>
+          <button onClick={addDriver} disabled={drivers.length >= 3}
+            style={{
+              marginLeft: "auto",
+              background: drivers.length >= 3 ? "#3a0010" : "linear-gradient(135deg, #ffd700, #c8a800)",
+              border: "none", color: drivers.length >= 3 ? "#666" : "#0a0a14",
+              padding: "5px 12px", borderRadius: 4,
+              fontSize: 10, cursor: drivers.length >= 3 ? "not-allowed" : "pointer", letterSpacing: 1.5,
+              fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+            }}>+ ADD DRIVER</button>
+        </div>
+
+        {drivers.length === 0 && (
+          <div style={{ color: "#444", fontSize: 12, padding: "20px 0", textAlign: "center", fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 2 }}>
+            ADD 2-3 DRIVERS TO COMPARE SIMULATIONS
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(drivers.length, 1)}, 1fr)`, gap: 10 }}>
+          {drivers.map((d, idx) => {
+            const tc = getTeamColor(d.driver);
+            return (
+              <div key={idx} style={{
+                background: "#13132a", border: `1px solid ${tc}44`, borderRadius: 6,
+                padding: "10px 12px", position: "relative",
+              }}>
+                <div style={{ position: "absolute", top: 0, left: 0, width: 3, height: "100%", background: tc }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <select value={d.driver} onChange={e => {
+                    const newDriver = raceData.drivers?.find(rd => rd.driver === e.target.value);
+                    updateDriver(idx, {
+                      driver: e.target.value,
+                      start_compound: newDriver?.start_compound || "MEDIUM",
+                      pit_stops: (newDriver?.pit_stops || []).map(p => ({ lap: p.lap, compound: p.to })),
+                    });
+                  }} style={{
+                    flex: 1, background: "transparent", border: "none",
+                    color: "#fff", fontFamily: "'Barlow Condensed', sans-serif",
+                    fontWeight: 800, fontSize: 14, letterSpacing: 0.5,
+                  }}>
+                    {raceData?.drivers?.map(rd => (
+                      <option key={rd.driver} value={rd.driver} style={{ background: "#13132a" }}>
+                        P{rd.finish_position} {rd.driver}
+                      </option>
+                    ))}
+                  </select>
+                  <button onClick={() => removeDriver(idx)} style={{
+                    background: "transparent", border: "none", color: "#555", cursor: "pointer", fontSize: 14, padding: 0,
+                  }}>×</button>
+                </div>
+                <div style={{ fontSize: 9, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 4 }}>START</div>
+                <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
+                  {["SOFT", "MEDIUM", "HARD"].map(c => (
+                    <button key={c} onClick={() => updateDriver(idx, { start_compound: c })}
+                      style={{
+                        flex: 1, padding: "4px 0",
+                        border: `1px solid ${d.start_compound === c ? COMPOUNDS[c].color : "#1e1e3a"}`,
+                        background: d.start_compound === c ? `${COMPOUNDS[c].color}22` : "transparent",
+                        borderRadius: 4, cursor: "pointer", fontSize: 11, color: "#aaa",
+                        fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+                      }}>{c[0]}</button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 9, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 4 }}>PIT STOPS ({d.pit_stops.length})</div>
+                {d.pit_stops.map((p, pi) => (
+                  <div key={pi} style={{ display: "flex", gap: 4, marginBottom: 3, alignItems: "center" }}>
+                    <input type="number" value={p.lap} min={1} max={raceData?.total_laps || 70}
+                      onChange={e => {
+                        const next = [...d.pit_stops];
+                        next[pi] = { ...next[pi], lap: parseInt(e.target.value) || 1 };
+                        updateDriver(idx, { pit_stops: next });
+                      }}
+                      style={{ width: 50, background: "#0a0a1a", border: "1px solid #1e1e3a", color: "#fff", padding: "3px 6px", borderRadius: 3, fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}
+                    />
+                    <select value={p.compound} onChange={e => {
+                      const next = [...d.pit_stops];
+                      next[pi] = { ...next[pi], compound: e.target.value };
+                      updateDriver(idx, { pit_stops: next });
+                    }} style={{ flex: 1, background: "#0a0a1a", border: "1px solid #1e1e3a", color: COMPOUNDS[p.compound]?.color || "#fff", padding: "3px 6px", borderRadius: 3, fontSize: 11 }}>
+                      <option value="SOFT">SOFT</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HARD">HARD</option>
+                    </select>
+                    <button onClick={() => {
+                      const next = d.pit_stops.filter((_, i) => i !== pi);
+                      updateDriver(idx, { pit_stops: next });
+                    }} style={{ background: "transparent", border: "none", color: "#555", cursor: "pointer", fontSize: 12, padding: 0 }}>×</button>
+                  </div>
+                ))}
+                <button onClick={() => {
+                  const lastLap = d.pit_stops.length > 0 ? d.pit_stops[d.pit_stops.length - 1].lap : 1;
+                  updateDriver(idx, { pit_stops: [...d.pit_stops, { lap: Math.min(lastLap + 15, raceData?.total_laps - 5 || 50), compound: "HARD" }] });
+                }} style={{
+                  width: "100%", marginTop: 4, padding: "4px 0",
+                  background: "transparent", border: "1px dashed #2a2a4a",
+                  color: "#666", borderRadius: 4, cursor: "pointer", fontSize: 10,
+                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1,
+                }}>+ ADD PIT</button>
+              </div>
+            );
+          })}
+        </div>
+
+        {drivers.length >= 2 && (
+          <button onClick={runAll} disabled={loading}
+            style={{
+              width: "100%", marginTop: 14, padding: "12px",
+              background: "linear-gradient(135deg, #ffd700, #c8a800)",
+              border: "none", color: "#0a0a14", cursor: "pointer",
+              fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+              fontSize: 14, letterSpacing: 2.5, borderRadius: 6,
+              boxShadow: "0 0 16px rgba(255, 215, 0, 0.3)",
+            }}>{loading ? "RUNNING..." : "RUN ALL SIMULATIONS →"}</button>
+        )}
+      </div>
+
+      {loading && <div style={{ textAlign: "center", padding: 40 }}><Spinner /></div>}
+
+      {results?.results && (
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${results.results.length}, 1fr)`, gap: 14 }}>
+          {results.results.map((r, i) => {
+            const tc = getTeamColor(r.driver);
+            const isFaster = r.total_delta_seconds < 0;
+            const gained = r.actual_position - r.simulated_position;
+            return (
+              <div key={i} style={{
+                background: "#0f0f1e", border: `1px solid ${tc}44`,
+                borderRadius: 10, padding: "16px 20px", position: "relative", overflow: "hidden",
+              }}>
+                <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: tc, boxShadow: `0 0 12px ${tc}88` }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <span style={{ fontSize: 20 }}>{getDriverFlag(r.driver)}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 22, color: "#fff", letterSpacing: 0.5 }}>{r.driver}</span>
+                </div>
+                {r.error ? (
+                  <div style={{ color: "#ff5555", fontSize: 12 }}>{r.error}</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 4 }}>TIME DELTA</div>
+                    <div className="mono" style={{
+                      fontWeight: 700, fontSize: 30, lineHeight: 1,
+                      color: isFaster ? "#00ff88" : r.total_delta_seconds > 0 ? "#ff5555" : "#aaa",
+                      textShadow: isFaster ? "0 0 12px rgba(0,255,136,0.4)" : r.total_delta_seconds > 0 ? "0 0 12px rgba(255,85,85,0.4)" : "none",
+                    }}>{r.total_delta_seconds > 0 ? "+" : ""}{r.total_delta_seconds?.toFixed(1)}s</div>
+
+                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginTop: 12, marginBottom: 4 }}>POSITION</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 22, color: "#666" }}>P{r.actual_position}</span>
+                      <span style={{ color: gained > 0 ? "#00ff88" : gained < 0 ? "#ff5555" : "#444", fontSize: 14 }}>→</span>
+                      <span style={{
+                        fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 28,
+                        color: gained > 0 ? "#00ff88" : gained < 0 ? "#ff5555" : "#fff",
+                      }}>P{r.simulated_position}</span>
+                    </div>
+
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: "#666", marginTop: 8, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, textTransform: "uppercase" }}>
+                      {gained > 0 ? `Gained ${gained}` : gained < 0 ? `Lost ${-gained}` : "No change"}
+                    </div>
+
+                    <div style={{ fontSize: 10, color: "#666", marginTop: 12, fontFamily: "JetBrains Mono, monospace", paddingTop: 10, borderTop: "1px solid #1a1a30" }}>
+                      {r.simulated_strategy}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 // Pit stop editor row
 function PitStopEditor({ pitStop, index, totalLaps, onUpdate, onRemove, warning }) {
   return (
@@ -578,6 +984,13 @@ export default function App() {
   // Model metrics
   const [metrics, setMetrics] = useState(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+
+  // Compare view
+  const [compareMode, setCompareMode] = useState("battle"); // "battle" or "whatif"
+  const [compareDriverA, setCompareDriverA] = useState("");
+  const [compareDriverB, setCompareDriverB] = useState("");
+  const [battleResult, setBattleResult] = useState(null);
+  const [battleLoading, setBattleLoading] = useState(false);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
@@ -706,6 +1119,20 @@ export default function App() {
     setChatLoading(false);
   }
 
+  async function runBattle() {
+    if (!selectedRace || !compareDriverA || !compareDriverB) return;
+    setBattleLoading(true);
+    setBattleResult(null);
+    try {
+      const r = await fetch(`${API}/compare/${selectedRace.year}/${selectedRace.round_number}/${compareDriverA}/${compareDriverB}`);
+      const d = await r.json();
+      setBattleResult(d);
+    } catch (err) {
+      setBattleResult({ error: "Failed to load battle data" });
+    }
+    setBattleLoading(false);
+  }
+
   function handleStintClick(driver) {
     setSimDriver(driver);
     setSimResult(null);
@@ -758,7 +1185,7 @@ export default function App() {
             </span>
           </div>
           <nav style={{ display: "flex", gap: 2 }}>
-            {[["strategy", "STRATEGY MAP"], ["simulate", "SIMULATE"], ["chat", "PITWALL AI"], ["model", "MODEL"]].map(([id, label]) => (
+            {[["strategy", "STRATEGY MAP"], ["simulate", "SIMULATE"], ["compare", "COMPARE"], ["chat", "PITWALL AI"], ["model", "MODEL"]].map(([id, label]) => (
               <button key={id} onClick={() => setView(id)} style={{
                 padding: "5px 14px", border: "none", cursor: "pointer",
                 background: view === id ? "#e8002d" : "transparent",
@@ -924,8 +1351,43 @@ export default function App() {
         {/* SIMULATE — NEW multi-pit editor */}
         {view === "simulate" && (
           <div style={{ animation: "slideIn 0.25s ease" }}>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 34, letterSpacing: 2, color: "#fff", marginBottom: 3 }}>STRATEGY SIMULATOR</h1>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>Edit any pit stop · Add or remove stops · See the full strategy impact</p>
+            {/* HERO HEADER */}
+            <div style={{
+              background: "linear-gradient(135deg, #0a0a1a 0%, #13132a 100%)",
+              border: "1px solid #1e1e3a",
+              borderRadius: 12, marginBottom: 22,
+              position: "relative", overflow: "hidden",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}>
+              <div style={{ position: "absolute", right: -80, top: -30, pointerEvents: "none", transform: "scaleX(-1)" }}>
+                <F1CarSilhouette opacity={0.14} width={620} />
+              </div>
+              <div style={{
+                position: "absolute", top: 0, left: 0,
+                width: 4, height: "100%",
+                background: "linear-gradient(180deg, #e8002d, transparent)",
+                boxShadow: "0 0 12px rgba(232, 0, 45, 0.6)",
+              }} />
+              <div style={{ position: "relative", padding: "22px 28px", zIndex: 1 }}>
+                <div className="live-indicator" style={{
+                  fontSize: 10, color: "#e8002d",
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, letterSpacing: 3, marginBottom: 8,
+                }}>
+                  STRATEGY SIMULATOR · COUNTERFACTUAL ENGINE
+                </div>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, fontSize: 38,
+                  color: "#fff", letterSpacing: 0.5, lineHeight: 1,
+                }}>
+                  PIT WALL <span style={{ color: "#e8002d" }}>EDITOR</span>
+                </div>
+                <div style={{ color: "#666", fontSize: 12, marginTop: 8, letterSpacing: 0.5, maxWidth: 600 }}>
+                  Edit any pit stop · Add or remove stops · See full race impact with ML-predicted lap times and position changes
+                </div>
+              </div>
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: 18 }}>
               {/* CONTROLS */}
@@ -950,15 +1412,30 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Driver */}
+                {/* Driver — with team color preview */}
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ display: "block", fontSize: 10, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 5 }}>DRIVER</label>
-                  <select value={simDriver} onChange={e => setSimDriver(e.target.value)}
-                    style={{ width: "100%", background: "#13132a", border: "1px solid #1e1e3a", color: "#e8e8f0", padding: "8px 10px", borderRadius: 6, fontSize: 13 }}>
-                    {raceData?.drivers?.map(d => (
-                      <option key={d.driver} value={d.driver}>P{d.finish_position} {d.driver}</option>
-                    ))}
-                  </select>
+                  <div style={{ position: "relative" }}>
+                    <div style={{
+                      position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+                      background: getTeamColor(simDriver),
+                      borderRadius: "4px 0 0 4px",
+                      boxShadow: `0 0 8px ${getTeamColor(simDriver)}88`,
+                    }} />
+                    <select value={simDriver} onChange={e => setSimDriver(e.target.value)}
+                      style={{
+                        width: "100%", background: "#13132a", border: "1px solid #1e1e3a",
+                        color: "#e8e8f0", padding: "10px 10px 10px 14px", borderRadius: 6,
+                        fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                        appearance: "none", cursor: "pointer",
+                      }}>
+                      {raceData?.drivers?.map(d => (
+                        <option key={d.driver} value={d.driver}>
+                          {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Start compound */}
@@ -1040,38 +1517,87 @@ export default function App() {
                 )}
                 {simResult && !simResult.error && (
                   <div style={{ animation: "slideIn 0.25s ease" }}>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: 2, color: "#444", marginBottom: 16 }}>
-                      RESULTS — {simResult.driver} · {simResult.race} {simResult.year}
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      marginBottom: 18,
+                    }}>
+                      <div className="live-indicator" style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontWeight: 800, fontSize: 11, letterSpacing: 2.5, color: "#e8002d",
+                      }}>SIMULATION RESULT</div>
+                      <div style={{
+                        flex: 1, height: 1, background: "linear-gradient(90deg, #e8002d44, transparent)",
+                      }} />
+                      <div style={{
+                        fontSize: 11, color: "#666",
+                        fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1.5,
+                      }}>
+                        {getDriverFlag(simResult.driver)} {simResult.driver} · {simResult.race} {simResult.year}
+                      </div>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
                       <div style={{
-                        background: simResult.total_delta_seconds < 0 ? "#00ff8810" : simResult.total_delta_seconds > 0 ? "#ff220010" : "#ffffff08",
-                        border: `1px solid ${simResult.total_delta_seconds < 0 ? "#00ff8830" : simResult.total_delta_seconds > 0 ? "#ff220030" : "#ffffff15"}`,
-                        borderRadius: 8, padding: "16px 18px",
+                        background: simResult.total_delta_seconds < 0
+                          ? "linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,255,136,0.02))"
+                          : simResult.total_delta_seconds > 0
+                          ? "linear-gradient(135deg, rgba(255,34,0,0.08), rgba(255,34,0,0.02))"
+                          : "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))",
+                        border: `1px solid ${simResult.total_delta_seconds < 0 ? "#00ff8844" : simResult.total_delta_seconds > 0 ? "#ff220044" : "#ffffff15"}`,
+                        borderRadius: 10, padding: "20px 22px",
+                        boxShadow: simResult.total_delta_seconds < 0 ? "0 0 24px rgba(0,255,136,0.1)" : simResult.total_delta_seconds > 0 ? "0 0 24px rgba(255,34,0,0.1)" : "none",
+                        position: "relative", overflow: "hidden",
                       }}>
-                        <div style={{ fontSize: 10, letterSpacing: 1.5, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 6 }}>TIME DELTA</div>
-                        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 40, color: simResult.total_delta_seconds < 0 ? "#00ff88" : simResult.total_delta_seconds > 0 ? "#ff5555" : "#e8e8f0" }}>
+                        <div style={{ fontSize: 10, letterSpacing: 2, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 8 }}>TIME DELTA</div>
+                        <div className="mono" style={{
+                          fontWeight: 700, fontSize: 52, lineHeight: 1,
+                          color: simResult.total_delta_seconds < 0 ? "#00ff88" : simResult.total_delta_seconds > 0 ? "#ff5555" : "#e8e8f0",
+                          textShadow: simResult.total_delta_seconds < 0 ? "0 0 16px rgba(0,255,136,0.4)" : simResult.total_delta_seconds > 0 ? "0 0 16px rgba(255,85,85,0.4)" : "none",
+                        }}>
                           {simResult.total_delta_seconds > 0 ? "+" : ""}{simResult.total_delta_seconds?.toFixed(1)}s
                         </div>
-                        <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{simResult.direction}</div>
+                        <div style={{
+                          fontSize: 11, color: "#888", marginTop: 8,
+                          fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1.5, fontWeight: 700, textTransform: "uppercase",
+                        }}>{simResult.direction}</div>
                       </div>
 
                       <div style={{
-                        background: simResult.simulated_position < simResult.actual_position ? "#00ff8810" :
-                                    simResult.simulated_position > simResult.actual_position ? "#ff220010" : "#ffffff08",
-                        border: `1px solid ${simResult.simulated_position < simResult.actual_position ? "#00ff8830" :
-                                             simResult.simulated_position > simResult.actual_position ? "#ff220030" : "#ffffff15"}`,
-                        borderRadius: 8, padding: "16px 18px",
+                        background: simResult.simulated_position < simResult.actual_position
+                          ? "linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,255,136,0.02))"
+                          : simResult.simulated_position > simResult.actual_position
+                          ? "linear-gradient(135deg, rgba(255,34,0,0.08), rgba(255,34,0,0.02))"
+                          : "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))",
+                        border: `1px solid ${simResult.simulated_position < simResult.actual_position ? "#00ff8844" : simResult.simulated_position > simResult.actual_position ? "#ff220044" : "#ffffff15"}`,
+                        borderRadius: 10, padding: "20px 22px",
+                        boxShadow: simResult.simulated_position < simResult.actual_position ? "0 0 24px rgba(0,255,136,0.1)" : simResult.simulated_position > simResult.actual_position ? "0 0 24px rgba(255,34,0,0.1)" : "none",
+                        position: "relative", overflow: "hidden",
                       }}>
-                        <div style={{ fontSize: 10, letterSpacing: 1.5, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 6 }}>POSITION</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, color: "#666" }}>P{simResult.actual_position}</div>
-                          <div style={{ color: "#333", fontSize: 20 }}>→</div>
-                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32,
-                            color: simResult.simulated_position < simResult.actual_position ? "#00ff88" :
-                                   simResult.simulated_position > simResult.actual_position ? "#ff5555" : "#e8e8f0",
+                        <div style={{ fontSize: 10, letterSpacing: 2, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 8 }}>POSITION</div>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                          <div style={{
+                            fontFamily: "'Barlow Condensed', sans-serif",
+                            fontWeight: 800, fontSize: 40, color: "#555", lineHeight: 1,
+                          }}>P{simResult.actual_position}</div>
+                          <div style={{
+                            color: simResult.simulated_position < simResult.actual_position ? "#00ff88" : simResult.simulated_position > simResult.actual_position ? "#ff5555" : "#444",
+                            fontSize: 24, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+                          }}>→</div>
+                          <div style={{
+                            fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 52, lineHeight: 1,
+                            color: simResult.simulated_position < simResult.actual_position ? "#00ff88" : simResult.simulated_position > simResult.actual_position ? "#ff5555" : "#e8e8f0",
+                            textShadow: simResult.simulated_position === 1 ? "0 0 16px rgba(255,215,0,0.4)" : "none",
                           }}>P{simResult.simulated_position}</div>
+                        </div>
+                        <div style={{
+                          fontSize: 11, color: "#888", marginTop: 8,
+                          fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1.5, fontWeight: 700, textTransform: "uppercase",
+                        }}>
+                          {simResult.simulated_position < simResult.actual_position
+                            ? `Gained ${simResult.actual_position - simResult.simulated_position} position${simResult.actual_position - simResult.simulated_position > 1 ? "s" : ""}`
+                            : simResult.simulated_position > simResult.actual_position
+                            ? `Lost ${simResult.simulated_position - simResult.actual_position} position${simResult.simulated_position - simResult.actual_position > 1 ? "s" : ""}`
+                            : "No change"}
                         </div>
                       </div>
                     </div>
@@ -1195,11 +1721,209 @@ export default function App() {
         )}
 
         {/* CHAT — same as before */}
-        {view === "chat" && (
-          <div style={{ animation: "slideIn 0.25s ease", height: "calc(100vh - 150px)", display: "flex", flexDirection: "column" }}>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 34, letterSpacing: 2, color: "#fff", marginBottom: 3 }}>PITWALL AI</h1>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>Powered by IBM Granite · 72 races · 2022–2025</p>
+        {view === "compare" && (
+          <div style={{ animation: "slideIn 0.25s ease" }}>
+            {/* HERO HEADER */}
+            <div style={{
+              background: "linear-gradient(135deg, #0a0a1a 0%, #13132a 100%)",
+              border: "1px solid #1e1e3a",
+              borderRadius: 12, marginBottom: 22,
+              position: "relative", overflow: "hidden",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}>
+              <div style={{ position: "absolute", right: -80, top: -30, pointerEvents: "none", transform: "scaleX(-1)" }}>
+                <F1CarSilhouette opacity={0.10} width={580} />
+              </div>
+              <div style={{
+                position: "absolute", top: 0, left: 0,
+                width: 4, height: "100%",
+                background: "linear-gradient(180deg, #ffd700, transparent)",
+                boxShadow: "0 0 12px rgba(255, 215, 0, 0.4)",
+              }} />
+              <div style={{ position: "relative", padding: "22px 28px", zIndex: 1 }}>
+                <div className="live-indicator" style={{
+                  fontSize: 10, color: "#ffd700",
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, letterSpacing: 3, marginBottom: 8,
+                }}>
+                  HEAD TO HEAD · STRATEGY COMPARISON
+                </div>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, fontSize: 38,
+                  color: "#fff", letterSpacing: 0.5, lineHeight: 1,
+                }}>
+                  STRATEGY <span style={{ color: "#ffd700" }}>BATTLE</span>
+                </div>
+                <div style={{ color: "#666", fontSize: 12, marginTop: 8, letterSpacing: 0.5, maxWidth: 600 }}>
+                  Compare two drivers in the same race · See where the race was won and lost lap by lap
+                </div>
+              </div>
+            </div>
 
+            {/* Mode tabs */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[["battle", "ACTUAL RACE"], ["whatif", "WHAT-IF SIM"]].map(([id, label]) => (
+                <button key={id} onClick={() => setCompareMode(id)} style={{
+                  padding: "8px 18px",
+                  background: compareMode === id ? "linear-gradient(135deg, #ffd700, #c8a800)" : "#0f0f1e",
+                  border: `1px solid ${compareMode === id ? "#ffd700" : "#1e1e3a"}`,
+                  color: compareMode === id ? "#0a0a14" : "#888",
+                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                  fontSize: 12, letterSpacing: 2, borderRadius: 6, cursor: "pointer",
+                  boxShadow: compareMode === id ? "0 0 12px rgba(255, 215, 0, 0.3)" : "none",
+                }}>{label}</button>
+              ))}
+            </div>
+
+            {compareMode === "battle" && (
+              <>
+                {/* Controls */}
+                <div style={{ background: "#0f0f1e", border: "1px solid #16162a", borderRadius: 10, padding: "16px 20px", marginBottom: 18, display: "flex", alignItems: "flex-end", gap: 14 }}>
+                  {!selectedRace && (
+                    <div style={{ color: "#e8002d", fontSize: 13, padding: "10px 0" }}>← Pick a race from the dropdown above</div>
+                  )}
+                  {selectedRace && (
+                    <>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 5 }}>DRIVER A</div>
+                        <div style={{ position: "relative" }}>
+                          {compareDriverA && (
+                            <div style={{
+                              position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+                              background: getTeamColor(compareDriverA),
+                              borderRadius: "4px 0 0 4px",
+                              boxShadow: `0 0 8px ${getTeamColor(compareDriverA)}88`,
+                            }} />
+                          )}
+                          <select value={compareDriverA} onChange={e => { setCompareDriverA(e.target.value); setBattleResult(null); }}
+                            style={{
+                              width: "100%", background: "#13132a", border: "1px solid #1e1e3a",
+                              color: "#e8e8f0", padding: "10px 10px 10px 14px", borderRadius: 6,
+                              fontSize: 13, appearance: "none", cursor: "pointer",
+                            }}>
+                            <option value="">Select driver...</option>
+                            {raceData?.drivers?.map(d => (
+                              <option key={d.driver} value={d.driver}>
+                                {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div style={{
+                        fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 22,
+                        color: "#ffd700", padding: "0 4px 10px", letterSpacing: 1,
+                      }}>VS</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, letterSpacing: 1.5, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 5 }}>DRIVER B</div>
+                        <div style={{ position: "relative" }}>
+                          {compareDriverB && (
+                            <div style={{
+                              position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+                              background: getTeamColor(compareDriverB),
+                              borderRadius: "4px 0 0 4px",
+                              boxShadow: `0 0 8px ${getTeamColor(compareDriverB)}88`,
+                            }} />
+                          )}
+                          <select value={compareDriverB} onChange={e => { setCompareDriverB(e.target.value); setBattleResult(null); }}
+                            style={{
+                              width: "100%", background: "#13132a", border: "1px solid #1e1e3a",
+                              color: "#e8e8f0", padding: "10px 10px 10px 14px", borderRadius: 6,
+                              fontSize: 13, appearance: "none", cursor: "pointer",
+                            }}>
+                            <option value="">Select driver...</option>
+                            {raceData?.drivers?.map(d => (
+                              <option key={d.driver} value={d.driver}>
+                                {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <button onClick={runBattle} disabled={!compareDriverA || !compareDriverB || battleLoading}
+                        style={{
+                          padding: "10px 22px",
+                          background: !compareDriverA || !compareDriverB ? "#3a0010" : "linear-gradient(135deg, #ffd700, #c8a800)",
+                          color: !compareDriverA || !compareDriverB ? "#666" : "#0a0a14",
+                          border: "none", borderRadius: 6, cursor: !compareDriverA || !compareDriverB ? "not-allowed" : "pointer",
+                          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                          fontSize: 13, letterSpacing: 2,
+                          boxShadow: !compareDriverA || !compareDriverB ? "none" : "0 0 16px rgba(255, 215, 0, 0.3)",
+                        }}>{battleLoading ? "..." : "COMPARE →"}</button>
+                    </>
+                  )}
+                </div>
+
+                {battleLoading && <div style={{ textAlign: "center", padding: 60 }}><Spinner /></div>}
+
+                {battleResult && !battleResult.error && (
+                  <BattleResults result={battleResult} />
+                )}
+
+                {battleResult?.error && (
+                  <div style={{ background: "#e8002d11", border: "1px solid #e8002d44", borderRadius: 8, padding: "14px 18px", color: "#ff5555" }}>
+                    {battleResult.error}
+                  </div>
+                )}
+
+                {!battleResult && !battleLoading && selectedRace && (
+                  <div style={{ textAlign: "center", padding: 80, color: "#444", border: "1px dashed #1e1e3a", borderRadius: 10 }}>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 2, color: "#555" }}>SELECT TWO DRIVERS AND HIT COMPARE</div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {compareMode === "whatif" && (
+              <WhatIfCompare raceData={raceData} selectedRace={selectedRace} />
+            )}
+          </div>
+        )}
+
+        {view === "chat" && (
+          <div style={{ animation: "slideIn 0.25s ease", height: "calc(100vh - 130px)", display: "flex", flexDirection: "column" }}>
+            {/* HERO HEADER */}
+            <div style={{
+              background: "linear-gradient(135deg, #0a0a1a 0%, #13132a 100%)",
+              border: "1px solid #1e1e3a",
+              borderRadius: 12, marginBottom: 18,
+              position: "relative", overflow: "hidden",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}>
+              <div style={{ position: "absolute", right: -60, top: -40, pointerEvents: "none" }}>
+                <F1CarSilhouette opacity={0.12} width={560} />
+              </div>
+              <div style={{
+                position: "absolute", top: 0, left: 0,
+                width: 4, height: "100%",
+                background: "linear-gradient(180deg, #e8002d, transparent)",
+                boxShadow: "0 0 12px rgba(232, 0, 45, 0.6)",
+              }} />
+              <div style={{ position: "relative", padding: "22px 28px", zIndex: 1 }}>
+                <div className="live-indicator" style={{
+                  fontSize: 10, color: "#e8002d",
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, letterSpacing: 3, marginBottom: 8,
+                }}>
+                  RACE ENGINEER · POWERED BY IBM GRANITE
+                </div>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, fontSize: 38,
+                  color: "#fff", letterSpacing: 0.5, lineHeight: 1,
+                }}>
+                  PITWALL <span style={{ color: "#e8002d" }}>AI</span>
+                </div>
+                <div style={{ display: "flex", gap: 18, marginTop: 12, fontSize: 11, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1.5 }}>
+                  <span><span className="mono" style={{ color: "#e8e8f0" }}>72</span> RACES</span>
+                  <span><span className="mono" style={{ color: "#e8e8f0" }}>4</span> SEASONS · 2022–2025</span>
+                  <span><span className="mono" style={{ color: "#e8e8f0" }}>5</span> MCP TOOLS</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 8 }}>SUGGESTED QUERIES</div>
             <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
               {[
                 "What if Verstappen pitted lap 20 on hards in Bahrain 2023?",
@@ -1209,35 +1933,86 @@ export default function App() {
               ].map(q => (
                 <button key={q} onClick={() => setInput(q)} style={{
                   background: "#0f0f1e", border: "1px solid #1e1e3a",
-                  color: "#666", padding: "5px 11px", borderRadius: 20,
-                  fontSize: 12, cursor: "pointer",
-                }}>{q}</button>
+                  color: "#888", padding: "6px 13px", borderRadius: 20,
+                  fontSize: 12, cursor: "pointer", transition: "all 0.15s",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "#e8002d44";
+                  e.currentTarget.style.color = "#e8e8f0";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "#1e1e3a";
+                  e.currentTarget.style.color = "#888";
+                }}
+                >{q}</button>
               ))}
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid #16162a", borderBottom: "1px solid #16162a", padding: "14px 0", marginBottom: 12 }}>
+            <div style={{
+              flex: 1, overflowY: "auto",
+              background: "#05050d",
+              border: "1px solid #16162a",
+              borderRadius: 10,
+              padding: "18px 16px",
+              marginBottom: 12,
+              position: "relative",
+            }}>
+              {/* Scan line at top */}
+              <div style={{
+                position: "sticky", top: -18,
+                marginTop: -18, marginLeft: -16, marginRight: -16,
+                height: 24,
+                background: "linear-gradient(180deg, #05050d 60%, transparent)",
+                zIndex: 5, pointerEvents: "none",
+              }} />
+
               {messages.map((m, i) => <ChatMessage key={i} msg={m} />)}
               {chatLoading && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e8002d", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 11, color: "#fff", flexShrink: 0 }}>PW</div>
-                  <Spinner />
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: "linear-gradient(135deg, #e8002d, #8a001a)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                    fontSize: 11, color: "#fff", flexShrink: 0,
+                    boxShadow: "0 0 12px rgba(232, 0, 45, 0.4)",
+                    animation: "pulseRed 1.5s infinite",
+                  }}>PW</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ fontSize: 10, color: "#e8002d", letterSpacing: 2, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 }}>ANALYSING</div>
+                    <Spinner />
+                  </div>
                 </div>
               )}
               <div ref={chatEndRef} />
             </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, position: "relative" }}>
+              <div style={{
+                position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                fontSize: 10, color: "#e8002d", fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 800, letterSpacing: 2, pointerEvents: "none",
+              }}>{">"}</div>
               <input value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendChat()}
                 placeholder="Ask about race strategy, tire degradation, or run a what-if simulation..."
-                style={{ flex: 1, background: "#0f0f1e", border: "1px solid #1e1e3a", borderRadius: 9, color: "#e8e8f0", padding: "11px 15px", fontSize: 14 }}
+                style={{
+                  flex: 1, background: "#0f0f1e", border: "1px solid #1e1e3a",
+                  borderRadius: 9, color: "#e8e8f0", padding: "12px 15px 12px 32px",
+                  fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                }}
               />
               <button onClick={sendChat} disabled={chatLoading || !input.trim()} style={{
-                padding: "11px 18px", background: "#e8002d", border: "none", borderRadius: 9,
+                padding: "12px 22px",
+                background: chatLoading || !input.trim() ? "#3a0010" : "linear-gradient(135deg, #e8002d, #b3001f)",
+                border: "none", borderRadius: 9,
                 color: "#fff", cursor: chatLoading || !input.trim() ? "not-allowed" : "pointer",
-                fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: 1.5,
-                opacity: chatLoading || !input.trim() ? 0.4 : 1,
-              }}>SEND</button>
+                fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: 2,
+                opacity: chatLoading || !input.trim() ? 0.5 : 1,
+                boxShadow: chatLoading || !input.trim() ? "none" : "0 0 16px rgba(232, 0, 45, 0.3)",
+                transition: "all 0.15s",
+              }}>SEND →</button>
             </div>
           </div>
         )}
@@ -1245,8 +2020,43 @@ export default function App() {
         {/* MODEL EVALUATION VIEW */}
         {view === "model" && (
           <div style={{ animation: "slideIn 0.25s ease" }}>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 34, letterSpacing: 2, color: "#fff", marginBottom: 3 }}>MODEL EVALUATION</h1>
-            <p style={{ color: "#555", fontSize: 13, marginBottom: 24 }}>XGBoost tire degradation model · Trained on 72 races · 4 seasons</p>
+            {/* HERO HEADER */}
+            <div style={{
+              background: "linear-gradient(135deg, #0a0a1a 0%, #13132a 100%)",
+              border: "1px solid #1e1e3a",
+              borderRadius: 12, marginBottom: 22,
+              position: "relative", overflow: "hidden",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}>
+              <div style={{ position: "absolute", right: -90, top: -30, pointerEvents: "none" }}>
+                <F1CarSilhouette opacity={0.10} width={600} />
+              </div>
+              <div style={{
+                position: "absolute", top: 0, left: 0,
+                width: 4, height: "100%",
+                background: "linear-gradient(180deg, #00d4ff, transparent)",
+                boxShadow: "0 0 12px rgba(0, 212, 255, 0.4)",
+              }} />
+              <div style={{ position: "relative", padding: "22px 28px", zIndex: 1 }}>
+                <div className="live-indicator" style={{
+                  fontSize: 10, color: "#00d4ff",
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, letterSpacing: 3, marginBottom: 8,
+                }}>
+                  ML ENGINE · DEGRADATION MODEL
+                </div>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 800, fontSize: 38,
+                  color: "#fff", letterSpacing: 0.5, lineHeight: 1,
+                }}>
+                  MODEL <span style={{ color: "#00d4ff" }}>TELEMETRY</span>
+                </div>
+                <div style={{ color: "#666", fontSize: 12, marginTop: 8, letterSpacing: 0.5, maxWidth: 600 }}>
+                  XGBoost regressor trained on 71,999 lap records from 72 races · validation metrics, feature importance, prediction accuracy
+                </div>
+              </div>
+            </div>
 
             {metricsLoading && <div style={{ textAlign: "center", padding: "80px 0" }}><Spinner /></div>}
 
@@ -1260,12 +2070,23 @@ export default function App() {
                     { label: "R²", value: metrics.validation_metrics.r2.toFixed(4), subtitle: `${(metrics.validation_metrics.r2 * 100).toFixed(1)}% variance explained`, color: "#00d4ff" },
                   ].map(m => (
                     <div key={m.label} style={{
-                      background: "#0f0f1e", border: `1px solid ${m.color}33`, borderRadius: 10,
-                      padding: "20px 22px",
+                      background: `linear-gradient(135deg, ${m.color}10, ${m.color}03)`,
+                      border: `1px solid ${m.color}33`, borderRadius: 10,
+                      padding: "22px 24px",
+                      position: "relative", overflow: "hidden",
+                      boxShadow: `0 0 24px ${m.color}11`,
                     }}>
-                      <div style={{ fontSize: 10, letterSpacing: 2, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, marginBottom: 8 }}>{m.label}</div>
-                      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 38, color: m.color, lineHeight: 1 }}>{m.value}</div>
-                      <div style={{ fontSize: 11, color: "#666", marginTop: 6 }}>{m.subtitle}</div>
+                      <div style={{
+                        position: "absolute", top: 0, left: 0,
+                        width: 3, height: "100%",
+                        background: `linear-gradient(180deg, ${m.color}, transparent)`,
+                      }} />
+                      <div style={{ fontSize: 10, letterSpacing: 2.5, color: m.color, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, marginBottom: 10, opacity: 0.8 }}>{m.label}</div>
+                      <div className="mono" style={{
+                        fontWeight: 700, fontSize: 46, color: m.color, lineHeight: 1,
+                        textShadow: `0 0 16px ${m.color}66`,
+                      }}>{m.value}</div>
+                      <div style={{ fontSize: 11, color: "#666", marginTop: 10, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1, fontWeight: 700, textTransform: "uppercase" }}>{m.subtitle}</div>
                     </div>
                   ))}
                 </div>

@@ -57,6 +57,16 @@ def get_race(year: int, round_number: int):
         laps = session.laps_for_driver(d)
         fastest = min((l.lap_time_seconds for l in laps if l.lap_time_seconds), default=None)
 
+        # Derive pit stops from stint transitions
+        # Each pit stop is the transition from one stint to the next
+        stint_based_pits = []
+        for i in range(len(stints) - 1):
+            stint_based_pits.append({
+                "lap": stints[i].lap_end,
+                "from": stints[i].compound.value,
+                "to": stints[i + 1].compound.value,
+            })
+
         drivers_data.append({
             "driver": d,
             "finish_position": finish_positions.get(d, 99),
@@ -74,11 +84,7 @@ def get_race(year: int, round_number: int):
                 }
                 for s in stints
             ],
-            "pit_stops": [
-                {"lap": p.lap_number, "from": p.compound_out.value, "to": p.compound_in.value}
-                for p in pits
-                if p.compound_out.value != p.compound_in.value  # skip phantom pits (same compound)
-            ],
+            "pit_stops": stint_based_pits,
             "start_compound": stints[0].compound.value if stints else "MEDIUM",
         })
 
@@ -89,6 +95,88 @@ def get_race(year: int, round_number: int):
         "round_number": session.round_number,
         "total_laps": session.total_laps,
         "drivers": drivers_data,
+    }
+
+
+@app.get("/compare/{year}/{round_number}/{driver_a}/{driver_b}")
+def compare_drivers(year: int, round_number: int, driver_a: str, driver_b: str):
+    """
+    Head-to-head lap-by-lap comparison between two drivers in the same race.
+    Returns cumulative time delta at each lap (positive = driver_a is behind).
+    """
+    session = load_race(year, round_number)
+    da = driver_a.upper()
+    db = driver_b.upper()
+
+    laps_a = session.laps_for_driver(da)
+    laps_b = session.laps_for_driver(db)
+    if not laps_a or not laps_b:
+        raise HTTPException(404, f"Driver data not found for {da} or {db}")
+
+    # Build per-lap data
+    by_lap_a = {l.lap_number: l for l in laps_a}
+    by_lap_b = {l.lap_number: l for l in laps_b}
+
+    cum_a, cum_b = 0.0, 0.0
+    lap_comparison = []
+    max_lap = max(max(by_lap_a.keys()), max(by_lap_b.keys()))
+
+    for lap in range(1, max_lap + 1):
+        la = by_lap_a.get(lap)
+        lb = by_lap_b.get(lap)
+        ta = la.lap_time_seconds if la and la.lap_time_seconds else None
+        tb = lb.lap_time_seconds if lb and lb.lap_time_seconds else None
+        if ta:
+            cum_a += ta
+        if tb:
+            cum_b += tb
+        lap_comparison.append({
+            "lap": lap,
+            "lap_time_a": round(ta, 3) if ta else None,
+            "lap_time_b": round(tb, 3) if tb else None,
+            "delta_lap": round((ta - tb), 3) if (ta and tb) else None,
+            "cum_delta": round(cum_a - cum_b, 2) if (ta and tb) else None,
+            "compound_a": la.compound.value if la else None,
+            "compound_b": lb.compound.value if lb else None,
+        })
+
+    # Final positions and total times
+    def driver_summary(d, laps):
+        valid = [l for l in laps if l.lap_time_seconds]
+        total = sum(l.lap_time_seconds for l in valid)
+        final_pos = None
+        for lap in reversed(laps):
+            if lap.position:
+                final_pos = lap.position
+                break
+        stints = session.stints_for_driver(d)
+        strategy = " → ".join(f"{s.compound.value[0]}({s.lap_start}-{s.lap_end})" for s in stints)
+        return {
+            "driver": d,
+            "total_time": round(total, 2),
+            "final_position": final_pos,
+            "strategy": strategy,
+            "pit_count": max(0, len(stints) - 1),
+        }
+
+    summary_a = driver_summary(da, laps_a)
+    summary_b = driver_summary(db, laps_b)
+    final_gap = round(summary_a["total_time"] - summary_b["total_time"], 2)
+
+    # Key moments: biggest single-lap deltas
+    valid_laps = [l for l in lap_comparison if l.get("delta_lap") is not None]
+    key_moments = sorted(valid_laps, key=lambda x: abs(x["delta_lap"]), reverse=True)[:5]
+
+    return {
+        "race": session.race_name,
+        "year": session.year,
+        "round_number": session.round_number,
+        "total_laps": session.total_laps,
+        "driver_a": summary_a,
+        "driver_b": summary_b,
+        "final_gap": final_gap,
+        "lap_comparison": lap_comparison,
+        "key_moments": key_moments,
     }
 
 
@@ -201,6 +289,68 @@ async def chat(req: ChatRequest):
 @app.get("/health")
 def health():
     return {"status": "ok", "model": "loaded"}
+
+
+class MultiSimRequest(BaseModel):
+    year: int
+    round_number: int
+    drivers: list[SimRequest]
+
+
+@app.post("/simulate_multi")
+def simulate_multi(req: MultiSimRequest):
+    """
+    Run multiple counterfactual simulations in parallel for different drivers.
+    Returns a list of results — useful for comparing strategies side-by-side.
+    """
+    try:
+        session = load_race(req.year, req.round_number)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+    results = []
+    for sim_req in req.drivers:
+        try:
+            cf = CounterfactualRequest(
+                year=sim_req.year,
+                round_number=sim_req.round_number,
+                driver=sim_req.driver.upper(),
+                start_compound=sim_req.start_compound.upper(),
+                pit_stops=[
+                    PitStop(lap=p.lap, compound=p.compound.upper())
+                    for p in sim_req.pit_stops
+                ],
+            )
+            result = simulate_counterfactual(cf, _model, _encoder)
+            race_pos = compute_race_position(
+                session, sim_req.driver.upper(), result.lap_comparisons,
+                session.total_laps, total_delta=result.total_delta,
+            )
+
+            results.append({
+                "driver": result.driver,
+                "actual_strategy": result.actual_strategy,
+                "simulated_strategy": result.simulated_strategy,
+                "total_delta_seconds": result.total_delta,
+                "actual_position": result.actual_finish_position or 99,
+                "simulated_position": race_pos.final_position,
+                "position_change": race_pos.message,
+                "actual_total_time": result.actual_total_time,
+                "simulated_total_time": result.simulated_total_time,
+                "summary": result.summary,
+            })
+        except Exception as e:
+            results.append({
+                "driver": sim_req.driver,
+                "error": str(e),
+            })
+
+    return {
+        "race": session.race_name,
+        "year": session.year,
+        "round_number": session.round_number,
+        "results": results,
+    }
 
 
 @app.get("/model_metrics")
