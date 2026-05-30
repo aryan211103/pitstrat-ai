@@ -35,15 +35,25 @@ export const TEAM_COLORS = {
   TSU: { team: "RB", color: "#6692ff", accent: "#4a6ec0" },
   DEV: { team: "RB", color: "#6692ff", accent: "#4a6ec0" },
   LAW: { team: "RB", color: "#6692ff", accent: "#4a6ec0" },
+  HAD: { team: "RB", color: "#6692ff", accent: "#4a6ec0" },
 
   // Kick Sauber / Alfa Romeo
   BOT: { team: "Sauber", color: "#52e252", accent: "#2a8a2a" },
   ZHO: { team: "Sauber", color: "#52e252", accent: "#2a8a2a" },
+  BOR: { team: "Sauber", color: "#52e252", accent: "#2a8a2a" },
 
   // Haas
   MAG: { team: "Haas", color: "#b6babd", accent: "#6e7274" },
   HUL: { team: "Haas", color: "#b6babd", accent: "#6e7274" },
   MSC: { team: "Haas", color: "#b6babd", accent: "#6e7274" },
+  BEA: { team: "Haas", color: "#b6babd", accent: "#6e7274" },
+
+  // Mercedes (2025 rookie)
+  ANT: { team: "Mercedes", color: "#00d2be", accent: "#008272" },
+
+  // Alpine (2025)
+  COL: { team: "Alpine", color: "#0090ff", accent: "#0060a8" },
+  DOO: { team: "Alpine", color: "#0090ff", accent: "#0060a8" },
 };
 
 // Driver country flags (using emoji)
@@ -73,6 +83,13 @@ export const DRIVER_FLAGS = {
   MAG: "🇩🇰", // Denmark
   HUL: "🇩🇪", // Germany
   MSC: "🇩🇪", // Germany
+  // 2025 rookies
+  HAD: "🇫🇷", // France (Hadjar)
+  BEA: "🇬🇧", // UK (Bearman)
+  COL: "🇦🇷", // Argentina (Colapinto)
+  BOR: "🇧🇷", // Brazil (Bortoleto)
+  ANT: "🇮🇹", // Italy (Antonelli)
+  DOO: "🇦🇺", // Australia (Doohan)
 };
 
 export function getTeamColor(driver) {
