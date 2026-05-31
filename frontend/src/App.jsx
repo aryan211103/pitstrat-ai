@@ -232,7 +232,7 @@ function ChatMessage({ msg }) {
           fontSize: 12, color: "#fff", marginRight: 10, flexShrink: 0, marginTop: 2,
           boxShadow: "0 0 12px rgba(232, 0, 45, 0.3), inset 0 0 0 1px rgba(255,255,255,0.1)",
           letterSpacing: 0.5,
-        }}>PW</div>
+        }}>PS</div>
       )}
       <div style={{ maxWidth: "76%", display: "flex", flexDirection: "column", gap: 4, alignItems: isUser ? "flex-end" : "flex-start" }}>
         {!isUser && (
@@ -2068,7 +2068,7 @@ export default function App() {
                     fontSize: 11, color: "#fff", flexShrink: 0,
                     boxShadow: "0 0 12px rgba(232, 0, 45, 0.4)",
                     animation: "pulseRed 1.5s infinite",
-                  }}>PW</div>
+                  }}>PS</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <div style={{ fontSize: 10, color: "#e8002d", letterSpacing: 2, fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 }}>ANALYSING</div>
                     <Spinner />
