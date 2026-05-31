@@ -239,7 +239,7 @@ function ChatMessage({ msg }) {
           <div style={{
             fontSize: 9, color: "#666",
             fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 2,
-          }}>PITWALL AI · RACE ENGINEER</div>
+          }}>PITSTRAT AI · RACE ENGINEER</div>
         )}
         <div style={{
           padding: "12px 16px",
@@ -1036,7 +1036,7 @@ export default function App() {
   const [sessionId] = useState(() => Math.random().toString(36).slice(2));
   const [messages, setMessages] = useState([{
     role: "assistant",
-    content: "Welcome to PitWall AI 🏁\n\nI have data on 72 races from 2022–2025. Ask me anything about race strategy, tire degradation, or run a 'what if' simulation.\n\nTry: \"What if Verstappen pitted earlier in Bahrain 2023?\""
+    content: "Welcome to PitStrat AI 🏁\n\nI have data on 72 races from 2022–2025. Ask me anything about race strategy, tire degradation, or run a 'what if' simulation.\n\nTry: \"What if Verstappen pitted earlier in Bahrain 2023?\""
   }]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -1241,11 +1241,11 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 36 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#e8002d", animation: "pulse 2s infinite" }} />
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 19, letterSpacing: 2, color: "#fff" }}>
-              PITWALL<span style={{ color: "#e8002d" }}> AI</span>
+              PITSTRAT<span style={{ color: "#e8002d" }}> AI</span>
             </span>
           </div>
           <nav style={{ display: "flex", gap: 2 }}>
-            {[["strategy", "STRATEGY MAP"], ["simulate", "SIMULATE"], ["compare", "COMPARE"], ["chat", "PITWALL AI"], ["model", "MODEL"]].map(([id, label]) => (
+            {[["strategy", "STRATEGY MAP"], ["simulate", "SIMULATE"], ["compare", "COMPARE"], ["chat", "PITSTRAT AI"], ["model", "MODEL"]].map(([id, label]) => (
               <button key={id} onClick={() => setView(id)} style={{
                 padding: "5px 14px", border: "none", cursor: "pointer",
                 background: view === id ? "#e8002d" : "transparent",
@@ -1469,7 +1469,7 @@ export default function App() {
                   fontWeight: 800, fontSize: 38,
                   color: "#fff", letterSpacing: 0.5, lineHeight: 1,
                 }}>
-                  PIT WALL <span style={{ color: "#e8002d" }}>EDITOR</span>
+                  PITSTRAT <span style={{ color: "#e8002d" }}>EDITOR</span>
                 </div>
                 <div style={{ color: "#666", fontSize: 12, marginTop: 8, letterSpacing: 0.5, maxWidth: 600 }}>
                   Edit any pit stop · Add or remove stops · See full race impact with ML-predicted lap times and position changes
@@ -2003,7 +2003,7 @@ export default function App() {
                   fontWeight: 800, fontSize: 38,
                   color: "#fff", letterSpacing: 0.5, lineHeight: 1,
                 }}>
-                  PITWALL <span style={{ color: "#e8002d" }}>AI</span>
+                  PITSTRAT <span style={{ color: "#e8002d" }}>AI</span>
                 </div>
                 <div style={{ display: "flex", gap: 18, marginTop: 12, fontSize: 11, color: "#555", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1.5 }}>
                   <span><span className="mono" style={{ color: "#e8e8f0" }}>72</span> RACES</span>

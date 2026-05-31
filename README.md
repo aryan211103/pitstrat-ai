@@ -1,4 +1,4 @@
-# PitWall AI — F1 Race Strategy Simulator
+# PitStrat AI — F1 Race Strategy Simulator
 
 > **IBM SkillsBuild AI Builders Challenge — May 2026**
 > Built with IBM Granite · Context Forge MCP · XGBoost · FastAPI · React
@@ -11,20 +11,20 @@ F1 race strategy is one of the most complex real-time decision problems in sport
 
 Fans watch races without understanding *why* decisions are made — or how differently things could have played out. Teams have million-dollar tools. Fans have commentary.
 
-**PitWall AI bridges that gap.**
+**PitStrat AI bridges that gap.**
 
 ---
 
 ## What It Does
 
-PitWall AI is a full-stack AI application that lets anyone analyse and simulate F1 race strategy using real historical data from 72 races (2022–2025).
+PitStrat AI is a full-stack AI application that lets anyone analyse and simulate F1 race strategy using real historical data from 72 races (2022–2025).
 
 ### Five core features:
 
 **1. Strategy Map**
 Visualise every driver's complete tyre strategy for any race in a Mercedes pit-wall-inspired live timing tower. Drivers shown sorted by finish position with team colour stripes, country flags, tyre compound markers on each stint, lap tick marks, and hover tooltips showing average lap time and degradation rate per stint.
 
-**2. Strategy Simulator (Pit Wall Editor)**
+**2. Strategy Simulator (PitStrat Editor)**
 Edit any driver's race like a real race engineer. Pick a driver, change starting tyre, add or remove pit stops, slide pit laps lap-by-lap, swap compounds. The simulator returns time delta, position change (with named drivers overtaken or lost to), tyre life warnings on over-stretched stints, and a SIMULATED TOP 6 standings table with both Gap and Interval columns like a real F1 broadcast.
 
 **3. Strategy Battle (Head-to-Head)**
@@ -33,7 +33,7 @@ Pick any two drivers from the same race. See their actual strategies side-by-sid
 **4. What-If Compare**
 Simulate alternate strategies for 2-3 drivers in parallel. Edit each driver's pit stops independently, hit RUN, see who would have won under different strategic choices. Solves "could LEC have beaten VER if he pitted later?" in one click.
 
-**5. PitWall AI Chat**
+**5. PitStrat AI Chat**
 Ask anything in natural language. IBM Granite calls the ML engine through MCP tools and narrates the answer like a race engineer. "What if Verstappen pitted lap 20 on hards in Bahrain 2023?" triggers a chain: list_races → get_race_data → simulate_strategy → natural language summary with real numbers.
 
 **Bonus: Model Telemetry page** — Full transparency on the ML model. MAE, RMSE, R², feature importance, predicted-vs-actual scatter, residual distribution, accuracy by tyre compound.
