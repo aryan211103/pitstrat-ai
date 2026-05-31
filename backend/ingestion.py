@@ -54,6 +54,7 @@ def extract_laps(session: fastf1.core.Session) -> pd.DataFrame:
         "Sector3Time": "sector3",
         "PitOutTime": "pit_out_time",
         "PitInTime": "pit_in_time",
+        "TrackStatus": "track_status",
     })
 
     # Convert timedelta lap times to float seconds
@@ -80,12 +81,22 @@ def extract_laps(session: fastf1.core.Session) -> pd.DataFrame:
     valid = {"SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"}
     laps["compound"] = laps["compound"].apply(lambda c: c if c in valid else "UNKNOWN")
 
+    # Derive track status flags from the TrackStatus string
+    # TrackStatus is a string like "1", "14", "146" listing every status that occurred during the lap
+    # 1=Green, 2=Yellow, 4=SafetyCar, 5=RedFlag, 6=VSC, 7=VSC ending
+    laps["track_status"] = laps["track_status"].fillna("1").astype(str)
+    laps["is_safety_car"] = laps["track_status"].str.contains("4", regex=False)
+    laps["is_vsc"] = laps["track_status"].str.contains("6", regex=False) | laps["track_status"].str.contains("7", regex=False)
+    laps["is_yellow_flag"] = laps["track_status"].str.contains("2", regex=False)
+    laps["is_red_flag"] = laps["track_status"].str.contains("5", regex=False)
+
     keep = [
         "driver", "driver_number", "lap_number", "lap_time_seconds",
         "is_personal_best", "compound", "tire_age_laps", "stint_number",
         "position", "gap_to_leader_seconds",
         "sector1", "sector2", "sector3",
         "is_pit_out_lap", "is_pit_in_lap",
+        "track_status", "is_safety_car", "is_vsc", "is_yellow_flag", "is_red_flag",
     ]
     return laps[keep].reset_index(drop=True)
 

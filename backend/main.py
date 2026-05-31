@@ -89,12 +89,41 @@ def get_race(year: int, round_number: int):
         })
 
     drivers_data.sort(key=lambda x: x["finish_position"])
+
+    # Build SC and VSC lap sets (union across all drivers, since these affect the whole field)
+    sc_laps = set()
+    vsc_laps = set()
+    for d in session.drivers:
+        for lap in session.laps_for_driver(d):
+            if lap.is_safety_car:
+                sc_laps.add(lap.lap_number)
+            elif lap.is_vsc:
+                vsc_laps.add(lap.lap_number)
+
+    def _to_ranges(laps: set[int]) -> list[dict]:
+        """Convert a set of lap numbers into contiguous ranges for cleaner UI rendering."""
+        if not laps:
+            return []
+        sorted_laps = sorted(laps)
+        ranges = []
+        start = prev = sorted_laps[0]
+        for lap in sorted_laps[1:]:
+            if lap == prev + 1:
+                prev = lap
+            else:
+                ranges.append({"start": start, "end": prev})
+                start = prev = lap
+        ranges.append({"start": start, "end": prev})
+        return ranges
+
     return {
         "race": session.race_name,
         "year": session.year,
         "round_number": session.round_number,
         "total_laps": session.total_laps,
         "drivers": drivers_data,
+        "safety_car_ranges": _to_ranges(sc_laps),
+        "vsc_ranges": _to_ranges(vsc_laps),
     }
 
 

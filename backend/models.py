@@ -29,6 +29,11 @@ class LapRecord(BaseModel):
     sector3: Optional[float] = None
     is_pit_out_lap: bool = False
     is_pit_in_lap: bool = False
+    # Track status fields (added for safety car awareness)
+    is_safety_car: bool = False
+    is_vsc: bool = False
+    is_yellow_flag: bool = False
+    is_red_flag: bool = False
 
 
 class PitStop(BaseModel):

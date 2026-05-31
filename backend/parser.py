@@ -40,6 +40,11 @@ def _load_laps(path: Path) -> list[LapRecord]:
             sector3=row["sector3"] if pd.notna(row["sector3"]) else None,
             is_pit_out_lap=bool(row["is_pit_out_lap"]),
             is_pit_in_lap=bool(row["is_pit_in_lap"]),
+            # SC fields, default False for older parquets that don't have these columns
+            is_safety_car=bool(row["is_safety_car"]) if "is_safety_car" in df.columns else False,
+            is_vsc=bool(row["is_vsc"]) if "is_vsc" in df.columns else False,
+            is_yellow_flag=bool(row["is_yellow_flag"]) if "is_yellow_flag" in df.columns else False,
+            is_red_flag=bool(row["is_red_flag"]) if "is_red_flag" in df.columns else False,
         ))
     return records
 

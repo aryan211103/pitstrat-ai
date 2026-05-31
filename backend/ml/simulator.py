@@ -12,6 +12,11 @@ from backend.ml.degradation import predict_lap_time
 from backend.parser import load_race
 
 PIT_STOP_LOSS = 22.0
+# Pitting under a safety car loses much less time because the field is also slow
+# Real-world estimate: ~10s under SC vs ~22s under green
+PIT_STOP_LOSS_SC = 10.0
+# Pitting under VSC is in between (field maintains a delta, less benefit than SC)
+PIT_STOP_LOSS_VSC = 14.0
 
 # Real-world tyre life ranges (laps)
 TYRE_LIFE = {
@@ -185,6 +190,24 @@ def simulate_counterfactual(
     circuit = session.race_name
     total_laps = session.total_laps
 
+    # Build set of SC/VSC laps from any driver's lap data (SC affects the whole field)
+    sc_laps = set()
+    vsc_laps = set()
+    for d in session.drivers:
+        for lap in session.laps_for_driver(d):
+            if lap.is_safety_car:
+                sc_laps.add(lap.lap_number)
+            elif lap.is_vsc:
+                vsc_laps.add(lap.lap_number)
+
+    def _pit_loss_for_lap(lap_num: int) -> float:
+        """Return pit loss for a given lap (reduced if SC/VSC active)."""
+        if lap_num in sc_laps:
+            return PIT_STOP_LOSS_SC
+        if lap_num in vsc_laps:
+            return PIT_STOP_LOSS_VSC
+        return PIT_STOP_LOSS
+
     driver_laps = session.laps_for_driver(request.driver)
     driver_stints_real = session.stints_for_driver(request.driver)
     driver_pits_real = session.pit_stops_for_driver(request.driver)
@@ -247,9 +270,9 @@ def simulate_counterfactual(
         else:
             actual_pred = 95.0
 
-        # Add actual pit stop loss
+        # Add actual pit stop loss (reduced if SC/VSC active on this lap)
         if lap in actual_pit_laps:
-            actual_ml_total += PIT_STOP_LOSS
+            actual_ml_total += _pit_loss_for_lap(lap)
 
         actual_ml_total += actual_pred
 
@@ -267,9 +290,9 @@ def simulate_counterfactual(
         else:
             sim_pred = 95.0
 
-        # Add simulated pit stop loss
+        # Add simulated pit stop loss (reduced if SC/VSC active on this lap)
         if lap in sim_pit_laps:
-            sim_ml_total += PIT_STOP_LOSS
+            sim_ml_total += _pit_loss_for_lap(lap)
 
         sim_ml_total += sim_pred
 

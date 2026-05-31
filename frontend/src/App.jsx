@@ -94,10 +94,10 @@ function StintBar({ stint, totalLaps, isLeader }) {
   );
 }
 
-function DriverRow({ driver, finish_position, stints, totalLaps, onSelect, index }) {
-  const teamColor = getTeamColor(driver);
+function DriverRow({ driver, finish_position, stints, totalLaps, onSelect, index, safetyCarRanges, vscRanges, year, round }) {
+  const teamColor = getTeamColor(driver, year, round);
   const flag = getDriverFlag(driver);
-  const teamName = getTeamName(driver);
+  const teamName = getTeamName(driver, year, round);
   const [hover, setHover] = useState(false);
   const isLeader = finish_position === 1;
   const isPodium = finish_position <= 3;
@@ -161,6 +161,40 @@ function DriverRow({ driver, finish_position, stints, totalLaps, onSelect, index
         background: "#05050d", borderRadius: 4, overflow: "visible",
         border: "1px solid #1a1a30",
       }}>
+        {/* Safety car bands — yellow translucent overlay */}
+        {(safetyCarRanges || []).map((r, i) => {
+          const left = ((r.start - 1) / totalLaps) * 100;
+          const width = ((r.end - r.start + 1) / totalLaps) * 100;
+          return (
+            <div key={`sc-${i}`} style={{
+              position: "absolute",
+              left: `${left}%`, width: `${width}%`,
+              top: -3, bottom: -3,
+              background: "repeating-linear-gradient(45deg, rgba(255, 200, 0, 0.18) 0 6px, rgba(255, 200, 0, 0.10) 6px 12px)",
+              borderLeft: "1.5px solid rgba(255, 200, 0, 0.55)",
+              borderRight: "1.5px solid rgba(255, 200, 0, 0.55)",
+              pointerEvents: "none",
+              zIndex: 0,
+            }} />
+          );
+        })}
+        {/* VSC bands — purple translucent overlay */}
+        {(vscRanges || []).map((r, i) => {
+          const left = ((r.start - 1) / totalLaps) * 100;
+          const width = ((r.end - r.start + 1) / totalLaps) * 100;
+          return (
+            <div key={`vsc-${i}`} style={{
+              position: "absolute",
+              left: `${left}%`, width: `${width}%`,
+              top: -3, bottom: -3,
+              background: "repeating-linear-gradient(45deg, rgba(180, 140, 255, 0.14) 0 6px, rgba(180, 140, 255, 0.08) 6px 12px)",
+              borderLeft: "1.5px solid rgba(180, 140, 255, 0.45)",
+              borderRight: "1.5px solid rgba(180, 140, 255, 0.45)",
+              pointerEvents: "none",
+              zIndex: 0,
+            }} />
+          );
+        })}
         {/* Lap tick marks every 10 laps */}
         {Array.from({ length: Math.floor(totalLaps / 10) }, (_, i) => (
           <div key={i} style={{
@@ -512,9 +546,9 @@ function ResidualHistogram({ data }) {
 
 // Strategy battle results — actual race head-to-head
 function BattleResults({ result }) {
-  const { driver_a, driver_b, final_gap, lap_comparison, key_moments, total_laps } = result;
-  const aColor = getTeamColor(driver_a.driver);
-  const bColor = getTeamColor(driver_b.driver);
+  const { driver_a, driver_b, final_gap, lap_comparison, key_moments, total_laps, year, round_number } = result;
+  const aColor = getTeamColor(driver_a.driver, year, round_number);
+  const bColor = getTeamColor(driver_b.driver, year, round_number);
   const winner = final_gap < 0 ? driver_a : driver_b;
   const loser = final_gap < 0 ? driver_b : driver_a;
   const winnerColor = final_gap < 0 ? aColor : bColor;
@@ -736,7 +770,7 @@ function WhatIfCompare({ raceData, selectedRace }) {
 
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(drivers.length, 1)}, 1fr)`, gap: 10 }}>
           {drivers.map((d, idx) => {
-            const tc = getTeamColor(d.driver);
+            const tc = getTeamColor(d.driver, selectedRace?.year, selectedRace?.round_number);
             return (
               <div key={idx} style={{
                 background: "#13132a", border: `1px solid ${tc}44`, borderRadius: 6,
@@ -837,7 +871,7 @@ function WhatIfCompare({ raceData, selectedRace }) {
       {results?.results && (
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${results.results.length}, 1fr)`, gap: 14 }}>
           {results.results.map((r, i) => {
-            const tc = getTeamColor(r.driver);
+            const tc = getTeamColor(r.driver, selectedRace?.year, selectedRace?.round_number);
             const isFaster = r.total_delta_seconds < 0;
             const gained = r.actual_position - r.simulated_position;
             return (
@@ -890,12 +924,18 @@ function WhatIfCompare({ raceData, selectedRace }) {
 }
 
 // Pit stop editor row
-function PitStopEditor({ pitStop, index, totalLaps, onUpdate, onRemove, warning }) {
+function PitStopEditor({ pitStop, index, totalLaps, onUpdate, onRemove, warning, safetyCarRanges, vscRanges }) {
+  const inSC = (safetyCarRanges || []).some(r => pitStop.lap >= r.start && pitStop.lap <= r.end);
+  const inVSC = (vscRanges || []).some(r => pitStop.lap >= r.start && pitStop.lap <= r.end);
   return (
     <div style={{
       background: "#13132a",
       border: warning?.severity === "extreme" ? "1px solid #ff4444" :
-              warning?.severity === "stretched" ? "1px solid #ffaa00" : "1px solid #1e1e3a",
+              warning?.severity === "stretched" ? "1px solid #ffaa00" :
+              inSC ? "1px solid rgba(255, 200, 0, 0.55)" :
+              inVSC ? "1px solid rgba(180, 140, 255, 0.5)" :
+              "1px solid #1e1e3a",
+      boxShadow: inSC ? "0 0 14px rgba(255, 200, 0, 0.15)" : inVSC ? "0 0 14px rgba(180, 140, 255, 0.12)" : "none",
       borderRadius: 7, padding: "12px 14px", marginBottom: 8,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -949,6 +989,26 @@ function PitStopEditor({ pitStop, index, totalLaps, onUpdate, onRemove, warning 
           fontSize: 11, color: warning.severity === "extreme" ? "#ff7777" : "#ffcc66",
         }}>
           ⚠️ {warning.message}
+        </div>
+      )}
+      {inSC && (
+        <div style={{
+          marginTop: 10, padding: "6px 10px", borderRadius: 5,
+          background: "rgba(255, 200, 0, 0.12)", border: "1px solid rgba(255, 200, 0, 0.4)",
+          fontSize: 10, color: "#ffcc66",
+          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1.2,
+        }}>
+          PITS UNDER SAFETY CAR · SAVES ~12s
+        </div>
+      )}
+      {!inSC && inVSC && (
+        <div style={{
+          marginTop: 10, padding: "6px 10px", borderRadius: 5,
+          background: "rgba(180, 140, 255, 0.10)", border: "1px solid rgba(180, 140, 255, 0.4)",
+          fontSize: 10, color: "#c4a8ff",
+          fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1.2,
+        }}>
+          PITS UNDER VSC · SAVES ~8s
         </div>
       )}
     </div>
@@ -1317,6 +1377,30 @@ export default function App() {
                         <span style={{ fontSize: 11, color: "#666", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1 }}>{TYRE_LIFE[c]}</span>
                       </div>
                     ))}
+                    {raceData.safety_car_ranges?.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 14, borderLeft: "1px solid #1a1a30", marginLeft: 4 }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: 4,
+                          background: "repeating-linear-gradient(45deg, rgba(255, 200, 0, 0.7) 0 4px, rgba(255, 200, 0, 0.3) 4px 8px)",
+                          border: "1px solid rgba(255, 200, 0, 0.7)",
+                        }} />
+                        <span style={{ fontSize: 11, color: "#ffc800", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1 }}>
+                          SC L{raceData.safety_car_ranges.map(r => r.start === r.end ? r.start : `${r.start}-${r.end}`).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                    {raceData.vsc_ranges?.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: 4,
+                          background: "repeating-linear-gradient(45deg, rgba(180, 140, 255, 0.6) 0 4px, rgba(180, 140, 255, 0.25) 4px 8px)",
+                          border: "1px solid rgba(180, 140, 255, 0.6)",
+                        }} />
+                        <span style={{ fontSize: 11, color: "#b48cff", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, letterSpacing: 1 }}>
+                          VSC L{raceData.vsc_ranges.map(r => r.start === r.end ? r.start : `${r.start}-${r.end}`).join(", ")}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1340,7 +1424,11 @@ export default function App() {
                   {raceData.drivers?.map((d, idx) => (
                     <DriverRow key={d.driver} driver={d.driver}
                       finish_position={d.finish_position} stints={d.stints || []}
-                      totalLaps={raceData.total_laps} onSelect={handleStintClick} index={idx} />
+                      totalLaps={raceData.total_laps} onSelect={handleStintClick} index={idx}
+                      safetyCarRanges={raceData.safety_car_ranges}
+                      vscRanges={raceData.vsc_ranges}
+                      year={raceData.year}
+                      round={raceData.round_number} />
                   ))}
                 </div>
               </>
@@ -1418,9 +1506,9 @@ export default function App() {
                   <div style={{ position: "relative" }}>
                     <div style={{
                       position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
-                      background: getTeamColor(simDriver),
+                      background: getTeamColor(simDriver, raceData?.year, raceData?.round_number),
                       borderRadius: "4px 0 0 4px",
-                      boxShadow: `0 0 8px ${getTeamColor(simDriver)}88`,
+                      boxShadow: `0 0 8px ${getTeamColor(simDriver, raceData?.year, raceData?.round_number)}88`,
                     }} />
                     <select value={simDriver} onChange={e => setSimDriver(e.target.value)}
                       style={{
@@ -1431,7 +1519,7 @@ export default function App() {
                       }}>
                       {raceData?.drivers?.map(d => (
                         <option key={d.driver} value={d.driver}>
-                          {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver)}
+                          {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver, raceData?.year, raceData?.round_number)}
                         </option>
                       ))}
                     </select>
@@ -1480,6 +1568,8 @@ export default function App() {
                       onUpdate={(np) => updatePitStop(i, np)}
                       onRemove={() => removePitStop(i)}
                       warning={stintWarnings[i]}
+                      safetyCarRanges={raceData?.safety_car_ranges}
+                      vscRanges={raceData?.vsc_ranges}
                     />
                   ))}
 
@@ -1791,9 +1881,9 @@ export default function App() {
                           {compareDriverA && (
                             <div style={{
                               position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
-                              background: getTeamColor(compareDriverA),
+                              background: getTeamColor(compareDriverA, raceData?.year, raceData?.round_number),
                               borderRadius: "4px 0 0 4px",
-                              boxShadow: `0 0 8px ${getTeamColor(compareDriverA)}88`,
+                              boxShadow: `0 0 8px ${getTeamColor(compareDriverA, raceData?.year, raceData?.round_number)}88`,
                             }} />
                           )}
                           <select value={compareDriverA} onChange={e => { setCompareDriverA(e.target.value); setBattleResult(null); }}
@@ -1805,7 +1895,7 @@ export default function App() {
                             <option value="">Select driver...</option>
                             {raceData?.drivers?.map(d => (
                               <option key={d.driver} value={d.driver}>
-                                {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver)}
+                                {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver, raceData?.year, raceData?.round_number)}
                               </option>
                             ))}
                           </select>
@@ -1821,9 +1911,9 @@ export default function App() {
                           {compareDriverB && (
                             <div style={{
                               position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
-                              background: getTeamColor(compareDriverB),
+                              background: getTeamColor(compareDriverB, raceData?.year, raceData?.round_number),
                               borderRadius: "4px 0 0 4px",
-                              boxShadow: `0 0 8px ${getTeamColor(compareDriverB)}88`,
+                              boxShadow: `0 0 8px ${getTeamColor(compareDriverB, raceData?.year, raceData?.round_number)}88`,
                             }} />
                           )}
                           <select value={compareDriverB} onChange={e => { setCompareDriverB(e.target.value); setBattleResult(null); }}
@@ -1835,7 +1925,7 @@ export default function App() {
                             <option value="">Select driver...</option>
                             {raceData?.drivers?.map(d => (
                               <option key={d.driver} value={d.driver}>
-                                {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver)}
+                                {getDriverFlag(d.driver)} P{d.finish_position} {d.driver} · {getTeamName(d.driver, raceData?.year, raceData?.round_number)}
                               </option>
                             ))}
                           </select>

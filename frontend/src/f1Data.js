@@ -92,7 +92,9 @@ export const DRIVER_FLAGS = {
   DOO: "🇦🇺", // Australia (Doohan)
 };
 
-export function getTeamColor(driver) {
+export function getTeamColor(driver, year, round) {
+  const override = _findOverride(driver, year, round);
+  if (override) return override.color;
   return TEAM_COLORS[driver]?.color || "#666";
 }
 
@@ -100,6 +102,95 @@ export function getDriverFlag(driver) {
   return DRIVER_FLAGS[driver] || "🏁";
 }
 
-export function getTeamName(driver) {
+export function getTeamName(driver, year, round) {
+  const override = _findOverride(driver, year, round);
+  if (override) return override.team;
   return TEAM_COLORS[driver]?.team || "Unknown";
 }
+
+// Round-aware lookup. Each override entry can have an optional `from_round`.
+function _findOverride(driver, year, round) {
+  if (!year) return null;
+  const yearMap = TEAM_OVERRIDES[year];
+  if (!yearMap) return null;
+  const entries = yearMap[driver];
+  if (!entries) return null;
+  // entries is either a single team object or an array of {from_round, ...team}
+  if (!Array.isArray(entries)) return entries;
+  // Find the latest entry whose from_round <= current round
+  const r = round || 99;
+  let best = null;
+  for (const e of entries) {
+    if ((e.from_round || 1) <= r) {
+      if (!best || (e.from_round || 1) > (best.from_round || 1)) best = e;
+    }
+  }
+  return best;
+}
+
+// Team color shortcuts (so the override map below stays readable)
+const _TEAM = {
+  Williams: { color: "#005aff", accent: "#003a99" },
+  Ferrari: { color: "#dc0000", accent: "#8a0000" },
+  Mercedes: { color: "#00d2be", accent: "#008272" },
+  RedBull: { color: "#0600ef", accent: "#1e1e8a" },
+  RacingBulls: { color: "#6692ff", accent: "#4a6ec0" },
+  Alpine: { color: "#0090ff", accent: "#0060a8" },
+  AstonMartin: { color: "#006f62", accent: "#004640" },
+  McLaren: { color: "#ff8700", accent: "#a85800" },
+  Sauber: { color: "#52e252", accent: "#2a8a2a" },
+  Haas: { color: "#b6babd", accent: "#6e7274" },
+  AlphaTauri: { color: "#2b4562", accent: "#1a2a3d" },
+  AlfaRomeo: { color: "#900000", accent: "#5a0000" },
+};
+
+// All non-default team assignments per (year, round) since 2022
+// Drivers not listed here use their base TEAM_COLORS mapping
+export const TEAM_OVERRIDES = {
+  // 2023 — Nyck de Vries started at AlphaTauri, replaced mid-season by Ricciardo from round 11 (Hungary)
+  2023: {
+    DEV: { team: "AlphaTauri", ..._TEAM.AlphaTauri },
+    RIC: [
+      // RIC was at McLaren in 2022, here we override for 2023 only — joined AlphaTauri mid-season
+      { from_round: 11, team: "AlphaTauri", ..._TEAM.AlphaTauri },
+    ],
+  },
+
+  // 2024 — Hulkenberg/Magnussen at Haas, Sargeant at Williams replaced by Colapinto from round 16 (Italian GP),
+  // Ricciardo dropped from RB after Singapore (round 18), replaced by Lawson from round 19
+  2024: {
+    COL: [{ from_round: 16, team: "Williams", ..._TEAM.Williams }],
+    LAW: [{ from_round: 19, team: "RB", ..._TEAM.RacingBulls }],
+  },
+
+  // 2025 — biggest reshuffle year
+  // HAM Mercedes → Ferrari
+  // SAI Ferrari → Williams
+  // HUL Haas → Sauber
+  // BOT/ZHO out of Sauber; replaced by HUL + BOR
+  // BEA Haas full-time
+  // LAW promoted to Red Bull at start, demoted back to Racing Bulls from round 3 (Japan)
+  // TSU Racing Bulls → Red Bull from round 3
+  // DOO at Alpine, replaced by COL from round 7 (Imola)
+  // ANT Mercedes rookie
+  // HAD Racing Bulls rookie
+  2025: {
+    HAM: { team: "Ferrari", ..._TEAM.Ferrari },
+    SAI: { team: "Williams", ..._TEAM.Williams },
+    HUL: { team: "Sauber", ..._TEAM.Sauber },
+    BEA: { team: "Haas", ..._TEAM.Haas },
+    BOR: { team: "Sauber", ..._TEAM.Sauber },
+    ANT: { team: "Mercedes", ..._TEAM.Mercedes },
+    HAD: { team: "RB", ..._TEAM.RacingBulls },
+    LAW: [
+      { from_round: 1, team: "Red Bull", ..._TEAM.RedBull },
+      { from_round: 3, team: "RB", ..._TEAM.RacingBulls },
+    ],
+    TSU: [
+      { from_round: 1, team: "RB", ..._TEAM.RacingBulls },
+      { from_round: 3, team: "Red Bull", ..._TEAM.RedBull },
+    ],
+    DOO: [{ from_round: 1, team: "Alpine", ..._TEAM.Alpine }],
+    COL: [{ from_round: 7, team: "Alpine", ..._TEAM.Alpine }],
+  },
+};
