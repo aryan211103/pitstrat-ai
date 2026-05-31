@@ -193,21 +193,22 @@ pitstrat-ai/
 
 ## Demo Scenarios
 
-**1. Spain 2022 — PER could have won**
-- Open Strategy Map → 2022 R06 Spanish GP → see PER finished P2 behind VER by ~13s
-- Open Simulator → pick PER → change strategy to Medium start, pit lap 24 → Hard, pit lap 48 → Medium
-- Result: PER finishes 28.5s faster, takes P1 from VER. Strategy alone could have won him the race.
+**1. Qatar 2025 — The race McLaren lost on the pit wall**
+- Open Strategy Map → 2025 R23 Qatar Grand Prix → see the yellow safety car bands on laps 7-10. VER pitted under the SC, McLaren kept PIA and NOR out. VER won, PIA finished P2 13s back, NOR P4 behind Sainz.
+- Open Simulator → pick P2 PIA → first pit lap 10 (inside the SC window) → MEDIUM, second pit lap 42 → HARD.
+- Result: PIA finishes 12.5s faster, P2 → P1, beats VER by 3.2s. **The single safety car decision cost Piastri the race.**
+- Switch to P4 NOR → same strategy → result: NOR gains a podium (P4 → P3).
 
-**2. Strategy Battle — Bahrain 2023 RUS vs VER**
-- Open Compare → pick RUS and VER → see the cumulative delta chart showing VER pulled away in his first stint, then RUS clawed back during the pit cycle
+**2. Strategy Battle — head-to-head**
+- Open Compare → pick any two drivers in the same race → see the cumulative time delta chart showing exactly where the race was won and lost lap by lap.
 
 **3. Granite chat — natural language counterfactual**
 - Ask: "What if Verstappen pitted lap 20 on hards in Bahrain 2023?"
-- Granite calls list_races → get_race_data → simulate_strategy and returns a 130-word race-engineer-style explanation with real numbers
+- Granite calls list_races → get_race_data → simulate_strategy and returns a race-engineer-style explanation with real numbers from the simulation.
 
 ---
 
 ## Team
 Built for the IBM SkillsBuild AI Builders Challenge, May 2026.
 
-Aryan Hirlekar · MS Computer Science, Northeastern University · [GitHub](https://github.com/aryan211103) · [LinkedIn](https://linkedin.com/in/aryan-hirlekar)
+Aryan Hirlekar · MS Computer Science, Northeastern University · [GitHub](https://github.com/aryan211103) · [LinkedIn](https://www.linkedin.com/in/aryan-hirlekar-4a48aa248/)
